@@ -374,23 +374,34 @@
         });
 
         // 📥 [GET API] 구글 시트 원격 데이터 다운로드
+// 📥 [GET API] 구글 시트 원격 데이터 다운로드 (수정 버전)
         function loadDataFromSheet() {
             console.log("구글 스프레드시트 서버와 동기화 중...");
-            fetch(GAS_API_URL)
-                .then(res => res.json())
-                .then(res => {
-                    if(res.status === "success") {
-                        DB = res.data;
-                        refreshAll(); // 데이터 기반 UI 전체 새로고침
-                        console.log("시트 동기화 완료");
-                    } else {
-                        alert("구글 시트 연동 실패: " + res.message);
-                    }
-                })
-                .catch(err => {
-                    console.error("네트워크 통신 오류:", err);
-                    alert("구글 백엔드 API 서버 연결에 실패했습니다. URL을 확인해 주세요.");
-                });
+            
+            // 기존 fetch 설정을 구글 리다이렉션에 대응하도록 변경 유도
+            fetch(GAS_API_URL, {
+                method: "GET",
+                headers: {
+                    "Accept": "application/json"
+                }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("네트워크 응답이 올바르지 않습니다.");
+                return res.json();
+            })
+            .then(res => {
+                if(res.status === "success") {
+                    DB = res.data;
+                    refreshAll(); // 데이터 기반 UI 전체 새로고침
+                    console.log("시트 동기화 완료");
+                } else {
+                    alert("구글 시트 연동 실패: " + res.message);
+                }
+            })
+            .catch(err => {
+                console.error("네트워크 통신 오류 상세:", err);
+                alert("구글 백엔드 API 서버 연결에 실패했습니다. URL 및 구글 배포 설정을 확인해 주세요.");
+            });
         }
 
         // 📤 [POST API] 구글 시트 원격 데이터 적재 공통 제어자
