@@ -303,9 +303,13 @@
         </section>
 
     </main>
+// nkmnkm
+<script>
+        // ==========================================
+        // 1. UI 및 인터랙션 제어 모듈
+        // ==========================================
 
-    <script>
-        // 1. 탭 전환 메커니즘
+        // 탭 전환 메커니즘
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById(tabId).classList.remove('hidden');
@@ -318,7 +322,7 @@
             event.currentTarget.classList.remove('bg-white', 'text-gray-600', 'border');
         }
 
-        // 2. 고령자 월회비 면제 여부 실시간 체크 로직 (26년도 기준 20회/만70세 이상)
+        // 고령자 월회비 면제 여부 실시간 체크 로직 (26년도 기준 20회/만70세 이상)
         function checkElderExempt() {
             const val = parseInt(document.getElementById('baselineYear').value, 10);
             const notice = document.getElementById('exemptNotice');
@@ -329,7 +333,7 @@
             }
         }
 
-        // 3. 자격상실 선택 시 하위 세부 사유 입력 폼 확장 인터페이스
+        // 자격상실 선택 시 하위 세부 사유 입력 폼 확장 인터페이스
         function toggleTerminationFields() {
             const status = document.getElementById('memberStatus').value;
             const area = document.getElementById('terminationArea');
@@ -340,14 +344,14 @@
             }
         }
 
-        // 4. 화폐 단위 포맷 처리 (천단위 컴마 추가 기능)
+        // 화폐 단위 포맷 처리 (천단위 컴마 추가 기능)
         function formatCurrency(input) {
-            let num = input.value.replace(/[^0-8]/g, ""); // 숫자만 추출
+            let num = input.value.replace(/[^0-9]/g, ""); // 숫자만 추출
             if(num === "") { input.value = ""; return; }
             input.value = parseInt(num, 10).toLocaleString('ko-KR');
         }
 
-        // 5. 출금단가 연동 계산 엔진
+        // 출금단가 연동 계산 엔진
         function calcExpenseAmount() {
             const qty = parseInt(document.getElementById('expQty').value, 10) || 0;
             const priceText = document.getElementById('expPrice').value.replace(/,/g, "") || "0";
@@ -358,27 +362,28 @@
             }
         }
 
-        // 6. 월회비 납부 시 시작월 및 종료월 비즈니스 연산 핵심 로직
+
+        // ==========================================
+        // 2. 비즈니스 로직 및 기간 연산 모듈
+        // ==========================================
+
+        // 월회비 납부 시 시작월 및 종료월 비즈니스 연산 핵심 로직
         function calculateMembershipPeriod() {
             const incomeType = document.getElementById('incomeType').value;
             if (incomeType !== '월회비') return;
 
-            const name = document.getElementById('incomeUserSelect').value;
             const startMonthInput = document.getElementById('startMonth');
             
-            // [규격 반영] 직전 납부 레코드가 없을 경우 가상 조건 시뮬레이션 데이터 셋업
-            // 실제 운영 환경에서는 google.script.run을 활용해 구글 시트에서 최종 종료월을 비동기로 수집해옵니다.
+            // 실제 데이터 연동 시 구글 시트의 최종 종료월을 가져와 매핑할 수 있도록 설계
             let dummyLastEndMonth = "2026-05"; 
             
             if(dummyLastEndMonth) {
-                // 직전 종료월 다음 달을 자동으로 설정
                 let year = parseInt(dummyLastEndMonth.split('-')[0], 10);
                 let month = parseInt(dummyLastEndMonth.split('-')[1], 10);
                 month++;
                 if(month > 12) { month = 1; year++; }
                 startMonthInput.value = `${year}-${String(month).padStart(2, '0')}`;
             } else {
-                // 입회비 납부년월이 기본값으로 매핑됨
                 startMonthInput.value = "2026-01";
             }
             
@@ -392,13 +397,13 @@
             
             if(!startVal || amount <= 0) return;
 
-            // 납부 금액 기준 회비 유지 개월 수 산출 (월 10,000원 기본 요율 반영)
-            const monthsCovered = Math.floor(amount / 1000);
+            // 납부 금액 기준 회비 유지 개월 수 산출 (월 10,000원 요율)
+            const monthsCovered = Math.floor(amount / 10000);
+            if (monthsCovered <= 0) return;
             
             let year = parseInt(startVal.split('-')[0], 10);
             let month = parseInt(startVal.split('-')[1], 10);
             
-            // 예시: 6월부터 시작해서 50,000원 입금 시 5개월분 커버 -> 시작월 포함하여 10월 종료
             month = month + monthsCovered - 1; 
             while(month > 12) {
                 month -= 12;
@@ -415,7 +420,7 @@
             
             if(type === '월회비') {
                 area.classList.remove('hidden');
-                amtInput.value = "50,000"; // 테스트 가이드 예시 수치 셋업
+                amtInput.value = "50,000"; 
                 calculateMembershipPeriod();
             } else {
                 area.classList.add('hidden');
@@ -423,29 +428,236 @@
             }
         }
 
-        // 7. 데이터 무결성 검증 (중복입력 방지) 키 생성 후 저장 서브루틴
+
+        // ==========================================
+        // 3. Google Apps Script 백엔드 연동 통신 모듈
+        // ==========================================
+
+        // [폼 1] 회원 기본사항 저장 처리
+        function saveMember() {
+            const form = document.getElementById('memberForm');
+            
+            // 필수값 유효성 검증
+            const name = form.elements[0].value.trim();
+            const phone = form.elements[1].value.trim();
+            const baselineYear = document.getElementById('baselineYear').value;
+            
+            if(!name || !phone || !baselineYear) {
+                alert("필수 항목(*)을 모두 입력해주세요.");
+                return;
+            }
+
+            const payload = {
+                name: name,
+                phone: phone,
+                status: document.getElementById('memberStatus').value,
+                baselineYear: baselineYear,
+                contactType: form.elements[4].value,
+                zipCode: form.elements[5].value,
+                address: form.elements[6].value,
+                reqDetails: form.elements[7].value,
+                terminationDate: form.elements[8].value || "",
+                terminationType: form.elements[9].value || "",
+                remarks: form.elements[10].value || ""
+            };
+
+            console.log("구글 스프레드시트 서버와 동기화 중...");
+
+            google.script.run
+                .withSuccessHandler(function(response) {
+                    console.log("시트 동기화 완료", response);
+                    if(response && response.status === "SUCCESS") {
+                        alert(response.message);
+                        form.reset();
+                        document.getElementById('exemptNotice').classList.add('hidden');
+                        document.getElementById('terminationArea').classList.add('hidden');
+                    } else {
+                        alert("서버 처리 실패: " + (response ? response.message : "알 수 없는 오류"));
+                    }
+                })
+                .withFailureHandler(function(error) {
+                    console.error("구글 서버 통신 치명적 실패:", error);
+                    alert("구글 샌드박스 통신 오류: " + error.message);
+                })
+                .saveMemberData(payload);
+        }
+
+        // [폼 2] 입금 데이터 무결성 검증 및 저장 처리
         function saveIncome() {
             const date = document.getElementById('incomeDate').value;
             const name = document.getElementById('incomeUserSelect').value;
             const type = document.getElementById('incomeType').value;
+            const amount = document.getElementById('incomeAmount').value;
             
-            if(!date) { alert('입금 일자를 선택하십시오.'); return; }
+            if(!date || !name) { 
+                alert('입금 일자와 대상 회원을 필수 선택하십시오.'); 
+                return; 
+            }
             
-            // 중복 검증용 유일 키 구성 예시
-            const uniqueKey = `${type}_${name}_${date}`;
-            alert(`[데이터 검증 통과]\n중복방지 Key: ${uniqueKey}\n구글 시트에 성공적으로 적재되었습니다.`);
+            const payload = {
+                incomeDate: date,
+                name: name,
+                incomeType: type,
+                amount: amount,
+                startMonth: type === '월회비' ? document.getElementById('startMonth').value : "",
+                endMonth: type === '월회비' ? document.getElementById('endMonth').value : "",
+                description: document.getElementById('incomeDesc').value,
+                remarks: ""
+            };
+
+            console.log("구글 스프레드시트 서버와 동기화 중...");
+
+            google.script.run
+                .withSuccessHandler(function(response) {
+                    console.log("시트 동기화 완료", response);
+                    if(response && response.status === "SUCCESS") {
+                        alert(response.message);
+                        document.getElementById('incomeDesc').value = "";
+                    } else {
+                        alert("입금 반영 실패: " + (response ? response.message : "알 수 없는 오류"));
+                    }
+                })
+                .withFailureHandler(function(error) {
+                    console.error("구글 서버 통신 치명적 실패:", error);
+                    alert("구글 샌드박스 통신 오류: " + error.message);
+                })
+                .appendIncomeData(payload);
         }
 
-        // 8. 엑셀 변환용 다운로드 가상 처리 엔진 (헤더 한글 전환 규격 준수)
+        // [폼 3] 출금 원장 등록 처리
+        function saveExpense() {
+            const form = document.getElementById('expenseForm');
+            const date = form.elements[0].value;
+            const vendor = form.elements[1].value.trim();
+            const amount = document.getElementById('expAmount').value;
+
+            if(!date || !vendor || !amount) {
+                alert("지출일자, 상호, 총 지출 금액은 필수 항목입니다.");
+                return;
+            }
+
+            const payload = {
+                expenseDate: date,
+                vendor: vendor,
+                expenseType: form.elements[2].value,
+                quantity: document.getElementById('expQty').value,
+                unitPrice: document.getElementById('expPrice').value,
+                amount: amount,
+                description: form.elements[6].value,
+                remarks: ""
+            };
+
+            console.log("구글 스프레드시트 지출원장 동기화 중...");
+
+            google.script.run
+                .withSuccessHandler(function(response) {
+                    if(response && response.status === "SUCCESS") {
+                        alert(response.message);
+                        form.reset();
+                    } else {
+                        alert("출금 반영 실패: " + (response ? response.message : "알 수 없는 오류"));
+                    }
+                })
+                .withFailureHandler(function(error) {
+                    console.error("구글 서버 통신 치명적 실패:", error);
+                    alert("구글 샌드박스 통신 오류: " + error.message);
+                })
+                .appendExpenseData(payload);
+        }
+
+        // [기능 4] 조회 원장 데이터 기반 브라우저 다운로드 엔진
         function exportExcel(menuTitle) {
-            alert(`[엑셀 전환 가동]\n구글시트의 영문 필드 데이터셋이 지정한 조건에 맞게 필터링된 후, '한글명칭 속성 헤더'로 변환되어 파일 다운로드가 시작됩니다.\n\n수행 항목: ${menuTitle}`);
+            let filterValue = "전체";
+            if (menuTitle === "회원명부") {
+                filterValue = document.getElementById('searchStatus').value;
+            }
+            
+            console.log(menuTitle + " 추출 데이터 요청 중...");
+            
+            google.script.run
+                .withSuccessHandler(function(dataRows) {
+                    if(!dataRows || dataRows.length <= 1) {
+                        alert("조회된 데이터가 존재하지 않습니다.");
+                        return;
+                    }
+                    
+                    // CSV 변환 및 다운로드 블롭(Blob) 생성 엔진 가동
+                    let csvContent = "\uFEFF"; // 한글 깨짐 예방 BOM 지정
+                    dataRows.forEach(function(row) {
+                        let processedRow = row.map(value => {
+                            let str = value ? String(value).replace(/"/g, '""') : "";
+                            return '"' + str + '"';
+                        });
+                        csvContent += processedRow.join(",") + "\r\n";
+                    });
+                    
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement("a");
+                    const url = URL.createObjectURL(blob);
+                    
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", menuTitle + "_" + new Date().toISOString().substring(0,10) + ".csv");
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                })
+                .withFailureHandler(function(error) {
+                    alert("데이터 추출 실패: " + error.message);
+                })
+                .getExportData(menuTitle, filterValue);
         }
 
         // 초기 화면 구동 세팅
         window.onload = function() {
             document.getElementById('incomeDate').value = new Date().toISOString().substring(0, 10);
             handleIncomeTypeChange();
+            
+            // 기존 폼의 버튼들에 신규 이벤트 바인딩 가이드 적용
+            document.querySelector("#memberForm button").setAttribute("onclick", "saveMember()");
+            document.querySelector("#incomeForm button").setAttribute("onclick", "saveIncome()");
+            document.querySelector("#expenseForm button").setAttribute("onclick", "saveExpense()");
         };
     </script>
+
+// nkmnkm
+
 </body>
 </html>
+4. 백엔드 연동 가이드 (Google Apps Script 구조)
+구글 시트의 확장 프로그램 > Apps Script 메뉴에 등록하여 웹앱과 연동할 핵심 백엔드 함수 예시 예제입니다. 이 스크립트가 시트의 영문 헤더와 HTML의 한글 출력 요청을 조율해 줍니다.
+
+JavaScript
+// 웹앱 실행 진입점
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Index')
+      .setTitle("소사모 회원관리 시스템")
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// 중복 입력 방지 및 입금 데이터 추가 기능
+function appendIncomeData(incomeObj) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Incomes");
+  var data = sheet.getDataRange().getValues();
+  
+  // 중복 검사 (IncomeKey 조합 검증)
+  var newKey = incomeObj.incomeType + "_" + incomeObj.name + "_" + incomeObj.incomeDate;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === newKey) {
+      return "DUPLICATE"; // 이미 존재하는 입금 기록 오류 반환
+    }
+  }
+  
+  // 시트에 추가 (영문 구조에 맵핑하여 순서대로 저장)
+  sheet.appendRow([
+    newKey,
+    incomeObj.incomeDate,
+    incomeObj.name,
+    incomeObj.incomeType,
+    incomeObj.amount,
+    incomeObj.startMonth,
+    incomeObj.endMonth,
+    incomeObj.description,
+    incomeObj.remarks
+  ]);
+  return "SUCCESS";
