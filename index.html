@@ -626,37 +626,3 @@
 </body>
 </html>
 
-JavaScript
-// 웹앱 실행 진입점
-function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
-      .setTitle("소사모 회원관리 시스템")
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-// 중복 입력 방지 및 입금 데이터 추가 기능
-function appendIncomeData(incomeObj) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Incomes");
-  var data = sheet.getDataRange().getValues();
-  
-  // 중복 검사 (IncomeKey 조합 검증)
-  var newKey = incomeObj.incomeType + "_" + incomeObj.name + "_" + incomeObj.incomeDate;
-  for (var i = 1; i < data.length; i++) {
-    if (data[i][0] === newKey) {
-      return "DUPLICATE"; // 이미 존재하는 입금 기록 오류 반환
-    }
-  }
-  
-  // 시트에 추가 (영문 구조에 맵핑하여 순서대로 저장)
-  sheet.appendRow([
-    newKey,
-    incomeObj.incomeDate,
-    incomeObj.name,
-    incomeObj.incomeType,
-    incomeObj.amount,
-    incomeObj.startMonth,
-    incomeObj.endMonth,
-    incomeObj.description,
-    incomeObj.remarks
-  ]);
-  return "SUCCESS";
