@@ -48,7 +48,7 @@
         <div id="member-tab" class="tab-content active">
             <div class="bg-white rounded-lg shadow p-6 mb-6">
                 <h2 class="text-lg font-bold border-b pb-2 mb-4 text-blue-600"><i class="fa-solid fa-user-pen"></i> 회원 등록 및 수정</h2>
-                <form id="member-form" onsubmit="saveMember(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <form id="member-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">성명 *</label>
                         <input type="text" id="m-name" required class="mt-1 block w-full rounded border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500">
@@ -118,7 +118,7 @@
         <div id="income-tab" class="tab-content">
             <div class="bg-white rounded-lg shadow p-6 mb-6">
                 <h2 class="text-lg font-bold border-b pb-2 mb-4 text-emerald-600"><i class="fa-solid fa-money-bill-wave"></i> 회비 및 수입 입금 등록</h2>
-                <form id="income-form" onsubmit="saveIncome(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <form id="income-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">회원 검색/선택 (성명순 5명 표기)</label>
                         <select id="in-member-select" size="5" onchange="onIncomeMemberSelect()" class="mt-1 block w-full rounded border-gray-300 shadow-sm p-1 border bg-white text-sm">
@@ -180,7 +180,7 @@
         <div id="expense-tab" class="tab-content">
             <div class="bg-white rounded-lg shadow p-6 mb-6">
                 <h2 class="text-lg font-bold border-b pb-2 mb-4 text-red-600"><i class="fa-solid fa-money-bill-transfer"></i> 지출 출금 등록</h2>
-                <form id="expense-form" onsubmit="saveExpense(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <form id="expense-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">지출일자 *</label>
                         <input type="date" id="ex-date" required class="mt-1 block w-full rounded border-gray-300 shadow-sm p-2 border">
@@ -356,7 +356,7 @@
     </main>
 
     <script>
-        // 🚨 [필수 변경] Google Apps Script 배포 후 발급받은 웹 앱 URL을 여기에 붙여넣으세요.
+        // [필수 변경] Google Apps Script 배포 후 발급받은 웹 앱 URL
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyvTGMaQAetrTMtarb0bvkw3zHxrbjYNyLNvQ5bqmqk-qsOU4FY61UQ83xAJazxiIcxdA/exec";
                                      
         // 초기 실시간 원격 연동용 데이터베이스 구조
@@ -371,14 +371,15 @@
             
             // 🔗 [API] 페이지 로딩과 동시에 구글 시트 데이터 전량 조회 연동
             loadDataFromSheet();
+
+            // 🚨 [가장 중요] 브라우저 강제 중단 및 새로고침 방어용 이벤트 리스너 정의 생성
+            setupFormEventListeners();
         });
 
         // 📥 [GET API] 구글 시트 원격 데이터 다운로드
-// 📥 [GET API] 구글 시트 원격 데이터 다운로드 (수정 버전)
         function loadDataFromSheet() {
             console.log("구글 스프레드시트 서버와 동기화 중...");
             
-            // 기존 fetch 설정을 구글 리다이렉션에 대응하도록 변경 유도
             fetch(GAS_API_URL, {
                 method: "GET",
                 headers: {
@@ -404,9 +405,7 @@
             });
         }
 
-  // 📤 [POST API] 구글 시트 원격 데이터 적재 공통 제어자 (CORS 우회 최적화 버전)
-// 📤 [POST API] 구글 시트 원격 데이터 적재 공통 제어자 (CORS 우회 및 데이터 유실 방지 버전)
- // 📤 [POST API] 구글 시트 원격 데이터 적재 공통 제어자 (최종 정밀 매핑 버전)
+        // 📤 [POST API] 구글 시트 원격 데이터 적재 공통 제어자
         function sendDataToSheet(action, data, successCallback) {
             const postData = {
                 action: action,
@@ -434,6 +433,84 @@
             .catch(err => {
                 console.error("원격 서버 데이터 전송 실패 내역:", err);
                 alert("구글 서버 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+            });
+        }
+
+        // 🚨 폼 이벤트 통합 제어 엔진 생성 (e.preventDefault 우회 차단 고도화)
+        function setupFormEventListeners() {
+            // 1. 회원 정보 등록 및 수정 전송 이벤트
+            document.getElementById('member-form').addEventListener('submit', function(e) {
+                e.preventDefault(); // 🛑 브라우저 기본 전송 흐름을 끊어 비동기 데이터 유실 원천 봉쇄
+                
+                const name = document.getElementById('m-name').value.trim();
+                const gisu = parseInt(document.getElementById('m-gisu').value);
+                const status = document.getElementById('m-status').value;
+                
+                const memberData = {
+                    name: name,
+                    gisu: gisu,
+                    status: status,
+                    phone: document.getElementById('m-phone').value,
+                    phone_type: document.getElementById('m-phone-type').value,
+                    zip: document.getElementById('m-zip').value,
+                    address: document.getElementById('m-address').value,
+                    loss_date: status === '상실' ? document.getElementById('m-loss-date').value : "",
+                    loss_type: status === '상실' ? document.getElementById('m-loss-type').value : "",
+                    loss_note: status === '상실' ? document.getElementById('m-loss-note').value : "",
+                    note: document.getElementById('m-note').value
+                };
+
+                sendDataToSheet("saveMember", memberData, resetMemberForm);
+            });
+
+            // 2. 입금 정보 등록 전송 이벤트
+            document.getElementById('income-form').addEventListener('submit', function(e) {
+                e.preventDefault(); // 🛑 브라우저 기본 전송 흐름 차단
+                
+                const date = document.getElementById('in-date').value;
+                const name = document.getElementById('in-name').value.trim();
+                const type = document.getElementById('in-type').value;
+                const amount = parseInt(document.getElementById('in-amount').value);
+
+                // 중복 제출 원격 검사 정합성 로직
+                const isDuplicate = DB.income.some(i => i.date === date && i.name === name && i.type === type);
+                if(isDuplicate) {
+                    alert("🚨 중복 입력오류: 동일한 일자, 입금자, 입금유형의 데이터가 이미 대장에 존재합니다.");
+                    return;
+                }
+
+                const incomeData = {
+                    date: date,
+                    name: name,
+                    type: type,
+                    amount: amount,
+                    start_month: type === '월회비' ? document.getElementById('in-start-month').value : "",
+                    end_month: type === '월회비' ? document.getElementById('in-end-month').value : "",
+                    note: document.getElementById('in-note').value
+                };
+
+                sendDataToSheet("saveIncome", incomeData, resetIncomeForm);
+            });
+
+            // 3. 지출 출금 등록 전송 이벤트
+            document.getElementById('expense-form').addEventListener('submit', function(e) {
+                e.preventDefault(); // 🛑 브라우저 기본 전송 흐름 차단
+                
+                const exData = {
+                    date: document.getElementById('ex-date').value,
+                    company: document.getElementById('ex-company').value,
+                    type: document.getElementById('ex-type').value,
+                    qty: document.getElementById('ex-qty').value ? parseInt(document.getElementById('ex-qty').value) : "",
+                    price: document.getElementById('ex-price').value ? parseInt(document.getElementById('ex-price').value) : "",
+                    amount: parseInt(document.getElementById('ex-amount').value),
+                    note: document.getElementById('ex-note').value
+                };
+
+                sendDataToSheet("saveExpense", exData, () => {
+                    document.getElementById('expense-form').reset();
+                    // 오늘 날짜 재주입
+                    document.getElementById('ex-date').value = new Date().toISOString().split('T')[0];
+                });
             });
         }
 
@@ -466,37 +543,13 @@
             }
         }
 
-        // 1. 회원 정보 저장 제어 연동
-        function saveMember(e) {
-            e.preventDefault();
-            const name = document.getElementById('m-name').value.trim();
-            const gisu = parseInt(document.getElementById('m-gisu').value);
-            const status = document.getElementById('m-status').value;
-            
-            const memberData = {
-                name: name,
-                gisu: gisu,
-                status: status,
-                phone: document.getElementById('m-phone').value,
-                phone_type: document.getElementById('m-phone-type').value,
-                zip: document.getElementById('m-zip').value,
-                address: document.getElementById('m-address').value,
-                loss_date: status === '상실' ? document.getElementById('m-loss-date').value : "",
-                loss_type: status === '상실' ? document.getElementById('m-loss-type').value : "",
-                loss_note: status === '상실' ? document.getElementById('m-loss-note').value : "",
-                note: document.getElementById('m-note').value
-            };
-
-            // 🔗 [API 호출] 구글시트 API 연동 전송
-            sendDataToSheet("saveMember", memberData, resetMemberForm);
-        }
-
         function resetMemberForm() {
             document.getElementById('member-form').reset();
             document.getElementById('loss-fields').classList.add('hidden');
+            // 오늘 날짜 재주입
+            document.getElementById('search-m-date').value = new Date().toISOString().split('T')[0];
         }
 
-        // 2. 입금 화면 동적 컨트롤 및 저장 처리
         function toggleIncomeTypeFields() {
             const type = document.getElementById('in-type').value;
             const mFields = document.getElementById('monthly-fee-fields');
@@ -579,41 +632,13 @@
             }
         }
 
-        function saveIncome(e) {
-            e.preventDefault();
-            const date = document.getElementById('in-date').value;
-            const name = document.getElementById('in-name').value.trim();
-            const type = document.getElementById('in-type').value;
-            const amount = parseInt(document.getElementById('in-amount').value);
-
-            // 로컬 정합성 중복 오류 사전 스캔 검사
-            const isDuplicate = DB.income.some(i => i.date === date && i.name === name && i.type === type);
-            if(isDuplicate) {
-                alert("🚨 중복 입력오류: 동일한 일자, 입금자, 입금유형의 데이터가 이미 대장에 존재합니다.");
-                return;
-            }
-
-            const incomeData = {
-                date: date,
-                name: name,
-                type: type,
-                amount: amount,
-                start_month: type === '월회비' ? document.getElementById('in-start-month').value : "",
-                end_month: type === '월회비' ? document.getElementById('in-end-month').value : "",
-                note: document.getElementById('in-note').value
-            };
-
-            // 🔗 [API 호출] 구글시트 API 연동 전송
-            sendDataToSheet("saveIncome", incomeData, resetIncomeForm);
-        }
-
         function resetIncomeForm() {
             document.getElementById('income-form').reset();
             document.getElementById('in-amount').readOnly = false;
             document.getElementById('monthly-fee-fields').classList.add('hidden');
+            document.getElementById('in-date').value = new Date().toISOString().split('T')[0];
         }
 
-        // 3. 지출 출금 연동 처리 자동계산 및 저장
         function multiplyExpenseAmount() {
             const qty = parseFloat(document.getElementById('ex-qty').value) || 0;
             const price = parseFloat(document.getElementById('ex-price').value) || 0;
@@ -622,25 +647,6 @@
             }
         }
 
-        function saveExpense(e) {
-            e.preventDefault();
-            const exData = {
-                date: document.getElementById('ex-date').value,
-                company: document.getElementById('ex-company').value,
-                type: document.getElementById('ex-type').value,
-                qty: document.getElementById('ex-qty').value ? parseInt(document.getElementById('ex-qty').value) : "",
-                price: document.getElementById('ex-price').value ? parseInt(document.getElementById('ex-price').value) : "",
-                amount: parseInt(document.getElementById('ex-amount').value),
-                note: document.getElementById('ex-note').value
-            };
-
-            // 🔗 [API 호출] 구글시트 API 연동 전송
-            sendDataToSheet("saveExpense", exData, () => {
-                document.getElementById('expense-form').reset();
-            });
-        }
-
-        // 4. 공통 렌더링 및 필터링 제어 엔진
         function refreshAll() {
             renderMemberSelectLists();
             filterMemberList();
@@ -651,6 +657,7 @@
 
         function renderMemberSelectLists() {
             const select = document.getElementById('in-member-select');
+            if(!select) return;
             select.innerHTML = "";
             const sorted = [...DB.members].sort((a,b) => a.name.localeCompare(b.name, 'ko'));
             sorted.forEach(m => {
@@ -664,6 +671,7 @@
         function filterMemberList() {
             const statusFilter = document.getElementById('search-m-status').value;
             const tbody = document.getElementById('tbody-member');
+            if(!tbody) return;
             tbody.innerHTML = "";
 
             let filtered = DB.members;
@@ -692,6 +700,7 @@
 
         function renderValidityCheckTable() {
             const tbody = document.getElementById('tbody-validity');
+            if(!tbody) return;
             tbody.innerHTML = "";
             
             let validityData = [];
@@ -767,6 +776,7 @@
             const start = document.getElementById('search-in-start').value;
             const end = document.getElementById('search-in-end').value;
             const tbody = document.getElementById('tbody-income');
+            if(!tbody) return;
             tbody.innerHTML = "";
 
             let filtered = DB.income;
@@ -796,6 +806,7 @@
             const start = document.getElementById('search-ex-start').value;
             const end = document.getElementById('search-ex-end').value;
             const tbody = document.getElementById('tbody-expense');
+            if(!tbody) return;
             tbody.innerHTML = "";
 
             let filtered = DB.expense;
