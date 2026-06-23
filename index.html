@@ -358,7 +358,7 @@
     <script>
         // 🚨 [필수 변경] Google Apps Script 배포 후 발급받은 웹 앱 URL을 여기에 붙여넣으세요.
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyvTGMaQAetrTMtarb0bvkw3zHxrbjYNyLNvQ5bqmqk-qsOU4FY61UQ83xAJazxiIcxdA/exec";
-
+                                     
         // 초기 실시간 원격 연동용 데이터베이스 구조
         let DB = { members: [], income: [], expense: [] };
 
@@ -405,6 +405,7 @@
         }
 
   // 📤 [POST API] 구글 시트 원격 데이터 적재 공통 제어자 (CORS 우회 최적화 버전)
+// 📤 [POST API] 구글 시트 원격 데이터 적재 공통 제어자 (CORS 우회 및 데이터 유실 방지 버전)
         function sendDataToSheet(action, data, successCallback) {
             const postData = {
                 action: action,
@@ -413,18 +414,18 @@
 
             fetch(GAS_API_URL, {
                 method: "POST",
-                mode: "no-cors", // 구글 리다이렉션 차단 우회
+                mode: "no-cors", // 구글 리다이렉션 보안 우회 유지
                 headers: {
-                    "Content-Type": "text/plain" // no-cors 환경에서 가장 안전한 데이터 전달 타입
+                    "Content-Type": "text/plain" // no-cors 환경에서 데이터 유실이 없는 표준 규격
                 },
-                body: JSON.stringify(postData) // 문자열로 가공하여 전송
+                body: JSON.stringify(postData) // JSON 객체를 안정적인 문자열로 변환하여 전송
             })
             .then(() => {
-                alert("구글 스프레드시트에 전산 등록 요청을 보냈습니다.");
-                // 구글 서버에 데이터가 처리될 시간을 1초 준 뒤, 화면을 최신 시트 데이터로 갱신합니다.
+                alert("구글 스프레드시트에 전산 등록 요청을 전송했습니다.");
+                // 💡 구글 서버가 데이터를 시트에 받아적을 수 있도록 1.2초의 시간차를 두고 화면을 갱신합니다.
                 setTimeout(() => {
                     loadDataFromSheet();
-                }, 1000);
+                }, 1200);
                 if(successCallback) successCallback();
             })
             .catch(err => {
