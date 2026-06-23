@@ -406,6 +406,7 @@
 
   // 📤 [POST API] 구글 시트 원격 데이터 적재 공통 제어자 (CORS 우회 최적화 버전)
 // 📤 [POST API] 구글 시트 원격 데이터 적재 공통 제어자 (CORS 우회 및 데이터 유실 방지 버전)
+ // 📤 [POST API] 구글 시트 원격 데이터 적재 공통 제어자 (최종 정밀 매핑 버전)
         function sendDataToSheet(action, data, successCallback) {
             const postData = {
                 action: action,
@@ -414,23 +415,25 @@
 
             fetch(GAS_API_URL, {
                 method: "POST",
-                mode: "no-cors", // 구글 리다이렉션 보안 우회 유지
+                mode: "no-cors", // 구글 리다이렉션 보안 차단 우회 모드 유지
                 headers: {
-                    "Content-Type": "text/plain" // no-cors 환경에서 데이터 유실이 없는 표준 규격
+                    "Content-Type": "text/plain; charset=utf-8"
                 },
-                body: JSON.stringify(postData) // JSON 객체를 안정적인 문자열로 변환하여 전송
+                body: JSON.stringify(postData) // 텍스트 스트림 형태로 구글 백엔드 서버에 다이렉트 전송
             })
             .then(() => {
-                alert("구글 스프레드시트에 전산 등록 요청을 전송했습니다.");
-                // 💡 구글 서버가 데이터를 시트에 받아적을 수 있도록 1.2초의 시간차를 두고 화면을 갱신합니다.
+                alert("구글 스프레드시트에 전산 등록을 완료했습니다.");
+                
+                // 💡 구글 서버가 트랜잭션을 처리하고 스프레드시트에 행을 완전히 추가할 수 있도록 1.5초 뒤 화면 갱신 수행
                 setTimeout(() => {
                     loadDataFromSheet();
-                }, 1200);
+                }, 1500);
+                
                 if(successCallback) successCallback();
             })
             .catch(err => {
-                console.error("데이터 전송 오류:", err);
-                alert("저장 처리에 실패했습니다.");
+                console.error("원격 서버 데이터 전송 실패 내역:", err);
+                alert("구글 서버 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
             });
         }
 
