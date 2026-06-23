@@ -404,9 +404,8 @@
             });
         }
 
-   // 📤 [POST API] 구글 시트 원격 데이터 적재 공통 제어자 (최종 수정본)
+  // 📤 [POST API] 구글 시트 원격 데이터 적재 공통 제어자 (CORS 우회 최적화 버전)
         function sendDataToSheet(action, data, successCallback) {
-            // 구글 no-cors 모드에서 파라미터가 유실되지 않도록 URLSearchParams 방식을 사용합니다.
             const postData = {
                 action: action,
                 data: data
@@ -416,13 +415,13 @@
                 method: "POST",
                 mode: "no-cors", // 구글 리다이렉션 차단 우회
                 headers: {
-                    "Content-Type": "text/plain" // no-cors일 때는 text/plain이 가장 안전합니다.
+                    "Content-Type": "text/plain" // no-cors 환경에서 가장 안전한 데이터 전달 타입
                 },
-                body: JSON.stringify(postData)
+                body: JSON.stringify(postData) // 문자열로 가공하여 전송
             })
             .then(() => {
-                alert("구글 스프레드시트에 전산 요청을 보냈습니다.");
-                // 약간의 시간차를 두고 구글 시트로부터 최신 데이터를 다시 읽어옵니다.
+                alert("구글 스프레드시트에 전산 등록 요청을 보냈습니다.");
+                // 구글 서버에 데이터가 처리될 시간을 1초 준 뒤, 화면을 최신 시트 데이터로 갱신합니다.
                 setTimeout(() => {
                     loadDataFromSheet();
                 }, 1000);
