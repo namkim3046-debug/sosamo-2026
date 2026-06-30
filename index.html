@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>소사모 통합 관리 시스템</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>소사모 통합 관리 시스템 (v2.1)</title>
 <!--
   ★ 설정 필요 ★
   아래 SCRIPT_URL을 Apps Script 웹앱 배포 URL로 교체하세요.
@@ -121,6 +124,7 @@
     <div class="flex items-center h-14 gap-3">
       <span class="text-xl font-bold tracking-tight">소사모</span>
       <span class="text-accent-light text-sm font-medium">통합 관리 시스템</span>
+      <span class="text-xs text-gray-400 ml-2" style="font-family:monospace;">v2.1</span>
     </div>
     <!-- 탭 네비게이션 -->
     <nav class="flex gap-1 -mb-px overflow-x-auto">
@@ -560,14 +564,15 @@ async function apiGet(params) {
   const url = SCRIPT_URL + '?' + new URLSearchParams(params).toString();
   showLoading(true);
   try {
-    const res = await fetch(url, { mode: 'cors' });
+    // ★ Apps Script /exec는 302 리다이렉트를 거치므로 redirect:'follow' 명시
+    //   커스텀 헤더를 보내지 않아야 simple request로 처리되어 preflight가 생략됨
+    const res = await fetch(url, { method: 'GET', redirect: 'follow' });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     const data = await res.json();
     return data;
   } catch(e) {
-    // CORS / 네트워크 에러 상세 안내
     const msg = e.message.includes('Failed to fetch')
-      ? 'CORS 오류: file:// 대신 웹 서버(GitHub Pages, Live Server 등)로 접속하거나 Apps Script URL을 확인하세요.'
+      ? 'CORS/네트워크 오류: Apps Script 배포 액세스 권한이 "모든 사용자"인지 확인하고, 코드 수정 후 "새 버전"으로 재배포했는지 확인하세요.'
       : e.message;
     return { success: false, error: msg };
   } finally { showLoading(false); }
@@ -578,10 +583,12 @@ async function apiPost(payload) {
   if (!checkUrl()) return { success: false, error: 'SCRIPT_URL 미설정' };
   showLoading(true);
   try {
+    // ★ Content-Type을 지정하지 않으면 브라우저가 기본값(text/plain)을 사용해
+    //   simple request로 분류되므로 preflight(OPTIONS) 요청이 생기지 않음
+    //   Apps Script doPost(e)는 e.postData.contents로 원문을 그대로 읽으므로 문제 없음
     const res = await fetch(SCRIPT_URL, {
       method: 'POST',
-      mode: 'cors',
-      headers: { 'Content-Type': 'text/plain' }, // Apps Script CORS 우회: text/plain 사용
+      redirect: 'follow',
       body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -589,7 +596,7 @@ async function apiPost(payload) {
     return data;
   } catch(e) {
     const msg = e.message.includes('Failed to fetch')
-      ? 'CORS 오류: file:// 대신 웹 서버(GitHub Pages, Live Server 등)로 접속하거나 Apps Script URL을 확인하세요.'
+      ? 'CORS/네트워크 오류: Apps Script 배포 액세스 권한이 "모든 사용자"인지 확인하고, 코드 수정 후 "새 버전"으로 재배포했는지 확인하세요.'
       : e.message;
     return { success: false, error: msg };
   } finally { showLoading(false); }
