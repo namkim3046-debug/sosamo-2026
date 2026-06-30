@@ -1,611 +1,1339 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>소사모 회원관리 시스템</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <style>
-        .comma-input { text-align: right; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>소사모 통합 관리 시스템</title>
+<!--
+  ★ 설정 필요 ★
+  아래 SCRIPT_URL을 Apps Script 웹앱 배포 URL로 교체하세요.
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypNAbsVVvaDLAnfmEg2AKvvslRWX3do-4tun5jNsidH1lAtWG7DHAA4_MSjVCAKQg/exec";
+-->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          primary: { DEFAULT: '#1E3A5F', light: '#2A4F7C', dark: '#152B47' },
+          accent:  { DEFAULT: '#3B82F6', light: '#60A5FA', dark: '#2563EB' },
+        }
+      }
+    }
+  }
+</script>
+<style>
+  /* ── 전역 ── */
+  * { box-sizing: border-box; }
+  body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: #F0F4F8; }
+
+  /* ── 탭 네비 ── */
+  .tab-btn { transition: all .2s; border-bottom: 3px solid transparent; }
+  .tab-btn.active { border-bottom-color: #3B82F6; color: #3B82F6; font-weight: 700; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ── 토스트 ── */
+  #toast { position: fixed; top: 1.25rem; right: 1.25rem; z-index: 9999;
+           padding: .75rem 1.25rem; border-radius: .5rem; font-weight: 600;
+           box-shadow: 0 4px 16px rgba(0,0,0,.2); display: none; }
+  #toast.show { display: block; animation: fadein .3s; }
+  @keyframes fadein { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+
+  /* ── 로딩 ── */
+  #loading { position: fixed; inset:0; background:rgba(0,0,0,.35); z-index:9998;
+             display:none; align-items:center; justify-content:center; }
+  #loading.show { display:flex; }
+  .spinner { width:52px; height:52px; border:5px solid #fff3;
+             border-top-color:#3B82F6; border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* ── 모달 ── */
+  .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5);
+              z-index:9000; display:none; align-items:center; justify-content:center; overflow-y:auto; padding:1rem; }
+  .modal-bg.show { display:flex; }
+  .modal-box { background:#fff; border-radius:1rem; width:100%; max-width:540px;
+               max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+
+  /* ── 테이블 ── */
+  .tbl { width:100%; border-collapse:collapse; font-size:.85rem; }
+  .tbl th { background:#1E3A5F; color:#fff; padding:.5rem .75rem; text-align:left; white-space:nowrap; }
+  .tbl td { padding:.45rem .75rem; border-bottom:1px solid #E2E8F0; white-space:nowrap; }
+  .tbl tr:hover td { background:#EFF6FF; }
+  .tbl-wrap { overflow-x:auto; }
+
+  /* ── 뱃지 ── */
+  .badge { display:inline-block; padding:.15rem .55rem; border-radius:999px; font-size:.72rem; font-weight:700; }
+  .badge-취득  { background:#DCFCE7; color:#166534; }
+  .badge-상실  { background:#FEE2E2; color:#991B1B; }
+  .badge-기타  { background:#FEF3C7; color:#92400E; }
+  .badge-입회비 { background:#DBEAFE; color:#1E40AF; }
+  .badge-월회비 { background:#EDE9FE; color:#5B21B6; }
+  .badge-모임회비 { background:#FCE7F3; color:#9D174D; }
+  .badge-찬조 { background:#FEF9C3; color:#78350F; }
+  .badge-기타수입 { background:#F3F4F6; color:#374151; }
+
+  /* ── 입력 공통 ── */
+  .inp { width:100%; border:1px solid #CBD5E1; border-radius:.4rem; padding:.45rem .7rem;
+         font-size:.875rem; transition:border .15s; }
+  .inp:focus { outline:none; border-color:#3B82F6; box-shadow:0 0 0 2px #3B82F620; }
+  .inp.error { border-color:#EF4444; }
+  .err-msg { color:#EF4444; font-size:.75rem; margin-top:.2rem; }
+
+  /* ── 버튼 ── */
+  .btn { display:inline-flex; align-items:center; gap:.3rem; padding:.45rem 1rem;
+         border-radius:.4rem; font-size:.85rem; font-weight:600; cursor:pointer; transition:all .15s; border:none; }
+  .btn-primary { background:#1E3A5F; color:#fff; }
+  .btn-primary:hover { background:#2A4F7C; }
+  .btn-accent  { background:#3B82F6; color:#fff; }
+  .btn-accent:hover  { background:#2563EB; }
+  .btn-danger  { background:#EF4444; color:#fff; }
+  .btn-danger:hover  { background:#DC2626; }
+  .btn-ghost   { background:#F1F5F9; color:#334155; }
+  .btn-ghost:hover   { background:#E2E8F0; }
+  .btn-sm { padding:.3rem .7rem; font-size:.78rem; }
+
+  /* ── 카드 ── */
+  .card { background:#fff; border-radius:.75rem; box-shadow:0 2px 8px rgba(0,0,0,.07); }
+
+  /* ── 검색 탭 카드 ── */
+  .srch-tab { padding:.5rem 1rem; border-radius:.375rem; cursor:pointer; font-size:.85rem;
+              font-weight:600; transition:all .15s; background:#F1F5F9; color:#475569; }
+  .srch-tab.active { background:#1E3A5F; color:#fff; }
+
+  /* ── 필터 탭 (회원관리) ── */
+  .filter-tab { padding:.35rem .9rem; border-radius:999px; font-size:.8rem; font-weight:600;
+                cursor:pointer; transition:all .15s; background:#F1F5F9; color:#475569; }
+  .filter-tab.active { background:#1E3A5F; color:#fff; }
+</style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+<body class="min-h-screen">
 
-    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-            <h1 class="text-xl font-bold tracking-tight">소사모 회원관리 시스템</h1>
-            <span class="text-sm bg-indigo-700 px-3 py-1 rounded-full">기준개정: 26년도(20회/만70세)</span>
+<!-- ══ 로딩 ══════════════════════════════════════════════════ -->
+<div id="loading"><div class="spinner"></div></div>
+
+<!-- ══ 토스트 ════════════════════════════════════════════════ -->
+<div id="toast"></div>
+
+<!-- ══ 헤더 ═════════════════════════════════════════════════ -->
+<header class="bg-primary text-white shadow-lg sticky top-0 z-50">
+  <div class="max-w-screen-xl mx-auto px-4">
+    <div class="flex items-center h-14 gap-3">
+      <span class="text-xl font-bold tracking-tight">소사모</span>
+      <span class="text-accent-light text-sm font-medium">통합 관리 시스템</span>
+    </div>
+    <!-- 탭 네비게이션 -->
+    <nav class="flex gap-1 -mb-px overflow-x-auto">
+      <button class="tab-btn active text-sm px-4 py-2 whitespace-nowrap" data-tab="members">👥 회원관리</button>
+      <button class="tab-btn text-sm px-4 py-2 whitespace-nowrap" data-tab="deposits">💰 입금관리</button>
+      <button class="tab-btn text-sm px-4 py-2 whitespace-nowrap" data-tab="withdrawals">📤 출금관리</button>
+      <button class="tab-btn text-sm px-4 py-2 whitespace-nowrap" data-tab="search">🔍 현황검색</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ══ 메인 컨텐츠 ════════════════════════════════════════════ -->
+<main class="max-w-screen-xl mx-auto px-3 py-5">
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <!-- 탭1: 회원관리 -->
+  <!-- ──────────────────────────────────────────────────────── -->
+  <div class="tab-pane active" id="pane-members">
+    <div class="card p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 class="text-lg font-bold text-primary">회원 목록</h2>
+        <button class="btn btn-primary btn-sm" onclick="openMemberModal()">+ 신규 등록</button>
+      </div>
+      <!-- 필터 탭 -->
+      <div class="flex gap-2 flex-wrap mb-3" id="member-filter-tabs">
+        <button class="filter-tab active" data-filter="전체" onclick="setMemberFilter(this,'전체')">전체</button>
+        <button class="filter-tab" data-filter="취득" onclick="setMemberFilter(this,'취득')">취득</button>
+        <button class="filter-tab" data-filter="상실" onclick="setMemberFilter(this,'상실')">상실</button>
+        <button class="filter-tab" data-filter="기타" onclick="setMemberFilter(this,'기타')">기타</button>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>이름</th><th>연락처</th><th>회원상태</th><th>기수</th>
+              <th>월회비면제</th><th>연락유형</th><th>취득월</th><th>상실월</th><th>상실유형</th><th>관리</th>
+            </tr>
+          </thead>
+          <tbody id="members-tbody">
+            <tr><td colspan="10" class="text-center py-8 text-gray-400">데이터를 불러오는 중...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <!-- 탭2: 입금관리 -->
+  <!-- ──────────────────────────────────────────────────────── -->
+  <div class="tab-pane" id="pane-deposits">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- 입금 등록 폼 -->
+      <div class="card p-4 lg:col-span-1">
+        <h2 class="text-lg font-bold text-primary mb-4">입금 등록</h2>
+        <div id="deposit-form-wrap">
+          <!-- 동적 렌더링 -->
         </div>
-    </header>
-
-    <main class="max-w-7xl mx-auto px-4 py-6">
-        
-        <div class="flex flex-wrap gap-2 border-b border-gray-200 pb-3 mb-6">
-            <button onclick="switchTab('member-tab')" class="tab-btn px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-sm text-sm">회원 기본사항 관리</button>
-            <button onclick="switchTab('income-tab')" class="tab-btn px-4 py-2 bg-white text-gray-600 hover:bg-gray-100 font-semibold rounded-lg shadow-sm text-sm border border-gray-200">입금 관리</button>
-            <button onclick="switchTab('expense-tab')" class="tab-btn px-4 py-2 bg-white text-gray-600 hover:bg-gray-100 font-semibold rounded-lg shadow-sm text-sm border border-gray-200">출금 관리</button>
-            <button onclick="switchTab('search-tab')" class="tab-btn px-4 py-2 bg-white text-gray-600 hover:bg-gray-100 font-semibold rounded-lg shadow-sm text-sm border border-gray-200">조회 및 엑셀 다운로드</button>
+        <button class="btn btn-primary w-full mt-3" onclick="submitDeposit()">저장</button>
+        <button class="btn btn-ghost w-full mt-2 text-sm" onclick="clearDepositForm()">초기화</button>
+      </div>
+      <!-- 입금 목록 -->
+      <div class="card p-4 lg:col-span-2">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-bold text-primary">입금 내역</h2>
+          <span id="deposit-count" class="text-sm text-gray-500"></span>
         </div>
+        <div class="tbl-wrap" style="max-height:70vh; overflow-y:auto;">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>입금자</th><th>유형</th><th>입금일</th><th>금액</th>
+                <th>시작월</th><th>종료월</th><th>비고</th><th>관리</th>
+              </tr>
+            </thead>
+            <tbody id="deposits-tbody">
+              <tr><td colspan="8" class="text-center py-8 text-gray-400">데이터를 불러오는 중...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        <section id="member-tab" class="tab-content block bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h2 class="text-lg font-bold text-gray-900 mb-4 border-l-4 border-indigo-600 pl-2">회원 등록 및 정보 수정</h2>
-     <form id="memberForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <!-- ──────────────────────────────────────────────────────── -->
+  <!-- 탭3: 출금관리 -->
+  <!-- ──────────────────────────────────────────────────────── -->
+  <div class="tab-pane" id="pane-withdrawals">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- 출금 등록 폼 -->
+      <div class="card p-4 lg:col-span-1">
+        <h2 class="text-lg font-bold text-primary mb-4">출금 등록</h2>
+        <div class="space-y-3" id="withdrawal-form">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">출금명칭 <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(50자 이내)</span></label>
+            <input class="inp" id="w-name" maxlength="50" placeholder="출금명칭 입력">
+            <div class="err-msg hidden" id="w-name-err">출금명칭을 입력하세요.</div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">담당자</label>
+            <input class="inp" id="w-manager" placeholder="담당자명">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">출금일 <span class="text-red-500">*</span></label>
+            <input class="inp" id="w-date" type="date">
+            <div class="err-msg hidden" id="w-date-err">출금일을 선택하세요.</div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">금액 <span class="text-red-500">*</span></label>
+            <input class="inp" id="w-amount" placeholder="0" oninput="fmtAmount(this)">
+            <div class="err-msg hidden" id="w-amount-err">금액을 입력하세요.</div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">상호</label>
+            <input class="inp" id="w-company" placeholder="상호명">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">적요</label>
+            <input class="inp" id="w-summary" placeholder="적요">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">비고</label>
+            <textarea class="inp" id="w-note" rows="2" placeholder="비고"></textarea>
+          </div>
+          <input type="hidden" id="w-id">
+        </div>
+        <button class="btn btn-primary w-full mt-3" onclick="submitWithdrawal()">저장</button>
+        <button class="btn btn-ghost w-full mt-2 text-sm" onclick="clearWithdrawalForm()">초기화</button>
+      </div>
+      <!-- 출금 목록 -->
+      <div class="card p-4 lg:col-span-2">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-bold text-primary">출금 내역 <span class="text-sm font-normal text-gray-500">(최근 100건)</span></h2>
+        </div>
+        <div class="tbl-wrap" style="max-height:70vh; overflow-y:auto;">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>출금명칭</th><th>담당자</th><th>출금일</th><th>금액</th><th>상호</th><th>적요</th><th>비고</th><th>관리</th>
+              </tr>
+            </thead>
+            <tbody id="withdrawals-tbody">
+              <tr><td colspan="8" class="text-center py-8 text-gray-400">데이터를 불러오는 중...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 
-
-    <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">성명 *</label>
-        <input type="text" id="memberName" required class="w-full rounded-md border-gray-300 p-2 border">
+  <!-- ──────────────────────────────────────────────────────── -->
+  <!-- 탭4: 현황검색 -->
+  <!-- ──────────────────────────────────────────────────────── -->
+  <div class="tab-pane" id="pane-search">
+    <!-- 카드 탭 4개 -->
+    <div class="flex flex-wrap gap-2 mb-4">
+      <button class="srch-tab active" onclick="setSrchTab(this,'srch-members')">👥 회원명부</button>
+      <button class="srch-tab" onclick="setSrchTab(this,'srch-deposits')">💰 입금현황</button>
+      <button class="srch-tab" onclick="setSrchTab(this,'srch-withdrawals')">📤 출금현황</button>
+      <button class="srch-tab" onclick="setSrchTab(this,'srch-validity')">📅 자격 유효기간</button>
     </div>
 
-     <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">연락처 *</label>
-        <input type="tel" id="memberPhone" placeholder="010-0000-0000" required class="w-full rounded-md border-gray-300 p-2 border">
+    <!-- 회원명부 -->
+    <div id="srch-members" class="card p-4">
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <select class="inp w-auto" id="srch-m-status" style="min-width:120px;">
+          <option value="전체">전체</option>
+          <option value="취득">취득</option>
+          <option value="상실">상실</option>
+          <option value="기타">기타</option>
+        </select>
+        <button class="btn btn-accent btn-sm" onclick="runSearchMembers()">🔍 검색</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportCsv('srch-m-tbl','회원명부')">⬇ CSV</button>
+        <span id="srch-m-cnt" class="text-sm text-gray-500 ml-auto"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl" id="srch-m-tbl">
+          <thead><tr><th>SEQ</th><th>이름</th><th>연락처</th><th>회원상태</th><th>취득월</th><th>상실월</th></tr></thead>
+          <tbody id="srch-m-tbody"><tr><td colspan="6" class="text-center py-8 text-gray-400">검색 조건을 선택 후 검색하세요.</td></tr></tbody>
+        </table>
+      </div>
     </div>
 
-            <div>
-                  <label class="block text-xs font-semibold text-gray-600 mb-1">회원구분</label>
-	      <select id="memberStatus" onchange="toggleTerminationFields()" class="w-full rounded-md border-gray-300 p-2 border">
-		<option value="정상">정상</option>
-		<option value="상실">상실</option>
-		<option value="기타">기타</option>
-                  </select>
-            </div>
+    <!-- 입금현황 -->
+    <div id="srch-deposits" class="card p-4 hidden">
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <select class="inp w-auto" id="srch-d-type" style="min-width:130px;">
+          <option value="전체">전체 유형</option>
+          <option value="입회비">입회비</option>
+          <option value="월회비">월회비</option>
+          <option value="모임회비">모임회비</option>
+          <option value="찬조(현금)">찬조(현금)</option>
+          <option value="찬조(현물)">찬조(현물)</option>
+          <option value="기타수입">기타수입</option>
+        </select>
+        <input class="inp w-auto" id="srch-d-from" type="date" style="min-width:140px;">
+        <input class="inp w-auto" id="srch-d-to"   type="date" style="min-width:140px;">
+        <button class="btn btn-accent btn-sm" onclick="runSearchDeposits()">🔍 검색</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportCsv('srch-d-tbl','입금현황')">⬇ CSV</button>
+        <span id="srch-d-cnt" class="text-sm text-gray-500 ml-auto"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl" id="srch-d-tbl">
+          <thead><tr><th>입금일</th><th>회원상태</th><th>회원명</th><th>입금유형</th><th>금액</th><th>비고</th></tr></thead>
+          <tbody id="srch-d-tbody"><tr><td colspan="6" class="text-center py-8 text-gray-400">검색 조건을 선택 후 검색하세요.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">기수(초교 졸업연도 또는 회수) *</label>
-                    <input type="number" id="baselineYear" placeholder="예: 20" required onchange="checkElderExempt()" class="w-full rounded-md border-gray-300 shadow-sm p-2 border">
-                    <p id="exemptNotice" class="text-xs text-emerald-600 font-medium mt-1 hidden">※ 만 70세 이상 고령자: 월회비 면제 대상 회원입니다.</p>
-                </div>
+    <!-- 출금현황 -->
+    <div id="srch-withdrawals" class="card p-4 hidden">
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <input class="inp w-auto" id="srch-w-from" type="date" style="min-width:140px;">
+        <input class="inp w-auto" id="srch-w-to"   type="date" style="min-width:140px;">
+        <button class="btn btn-accent btn-sm" onclick="runSearchWithdrawals()">🔍 검색</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportCsv('srch-w-tbl','출금현황')">⬇ CSV</button>
+        <span id="srch-w-cnt" class="text-sm text-gray-500 ml-auto"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl" id="srch-w-tbl">
+          <thead><tr><th>출금일</th><th>출금명칭</th><th>담당자</th><th>금액</th><th>상호</th><th>적요</th><th>비고</th></tr></thead>
+          <tbody id="srch-w-tbody"><tr><td colspan="7" class="text-center py-8 text-gray-400">검색 조건을 선택 후 검색하세요.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">연락유형</label>
-                    <select class="w-full rounded-md border-gray-300 shadow-sm p-2 border">
-                        <option value="카톡">카톡</option>
-                        <option value="문자">문자</option>
-                        <option value="전화">전화</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">우편번호</label>
-                    <input type="text" class="w-full rounded-md border-gray-300 shadow-sm p-2 border">
-                </div>
-                <div class="md:col-span-3">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">주소</label>
-                    <input type="text" class="w-full rounded-md border-gray-300 shadow-sm p-2 border">
-                </div>
-                <div class="md:col-span-3">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">요구사항 / 연락이력 / 비고</label>
-                    <textarea rows="2" class="w-full rounded-md border-gray-300 shadow-sm p-2 border"></textarea>
-                </div>
+    <!-- 자격 유효기간 -->
+    <div id="srch-validity" class="card p-4 hidden">
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <select class="inp w-auto" id="srch-v-status" style="min-width:120px;">
+          <option value="전체">전체</option>
+          <option value="취득">취득</option>
+          <option value="상실">상실</option>
+          <option value="기타">기타</option>
+        </select>
+        <button class="btn btn-accent btn-sm" onclick="runSearchValidity()">🔍 검색</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportCsv('srch-v-tbl','자격유효기간')">⬇ CSV</button>
+        <span id="srch-v-cnt" class="text-sm text-gray-500 ml-auto"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl" id="srch-v-tbl">
+          <thead><tr><th>SEQ</th><th>이름</th><th>연락처</th><th>회원상태</th><th>취득월</th><th>상실월</th><th>상실 예정월</th></tr></thead>
+          <tbody id="srch-v-tbody"><tr><td colspan="7" class="text-center py-8 text-gray-400">검색 조건을 선택 후 검색하세요.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /pane-search -->
 
-                <div id="terminationArea" class="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 bg-red-50 p-4 rounded-lg hidden border border-red-100">
-                    <div>
-                        <label class="block text-xs font-semibold text-red-700 mb-1">상실일자</label>
-                        <input type="date" class="w-full rounded-md border-gray-300 p-2 border">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-red-700 mb-1">상실유형</label>
-                        <select class="w-full rounded-md border-gray-300 p-2 border">
-                            <option value="회비미납">회비미납 (12개월 연속)</option>
-                            <option value="본인희망">본인희망</option>
-                            <option value="기타">기타</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-red-700 mb-1">상실 사유 비고</label>
-                        <input type="text" class="w-full rounded-md border-gray-300 p-2 border">
-                    </div>
-                </div>
+</main>
 
-                <div class="md:col-span-3 text-right">
-                    <button type="button" onclick="alert('회원 정보가 구글시트에 안전하게 저장되었습니다.')" class="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow hover:bg-indigo-700 transition">회원정보 저장</button>
-                </div>
-            </form>
-        </section>
+<!-- ══ 회원 모달 ══════════════════════════════════════════════ -->
+<div class="modal-bg" id="member-modal">
+  <div class="modal-box">
+    <div class="flex items-center justify-between p-4 border-b">
+      <h3 class="font-bold text-primary text-lg" id="member-modal-title">회원 등록</h3>
+      <button onclick="closeModal('member-modal')" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <input type="hidden" id="m-id">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">이름 <span class="text-red-500">*</span></label>
+          <input class="inp" id="m-name" placeholder="홍길동">
+          <div class="err-msg hidden" id="m-name-err">이름을 입력하세요.</div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">연락처 <span class="text-red-500">*</span></label>
+          <input class="inp" id="m-phone" placeholder="010-0000-0000" oninput="fmtPhone(this)">
+          <div class="err-msg hidden" id="m-phone-err">연락처를 입력하세요.</div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">회원상태</label>
+          <select class="inp" id="m-status">
+            <option value="취득">취득</option>
+            <option value="상실">상실</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">기수</label>
+          <input class="inp" id="m-kisu" placeholder="예: 제15기" type="text">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">월회비 면제</label>
+          <select class="inp" id="m-kisu-yn">
+            <option value="N">아니오</option>
+            <option value="Y">예 (면제)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">연락유형</label>
+          <select class="inp" id="m-contact-type">
+            <option value="카카오">카카오</option>
+            <option value="전화">전화</option>
+            <option value="문자">문자</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">상실월 <span class="text-gray-400 font-normal">(YYYY-MM)</span></label>
+          <input class="inp" id="m-exit-date" placeholder="2026-12">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">상실유형</label>
+          <select class="inp" id="m-loss-type">
+            <option value="">-</option>
+            <option value="자진탈퇴">자진탈퇴</option>
+            <option value="회비미납">회비미납</option>
+            <option value="제명">제명</option>
+            <option value="사망">사망</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">메모</label>
+        <textarea class="inp" id="m-note" rows="2" placeholder="비고 내용"></textarea>
+      </div>
+    </div>
+    <div class="p-4 border-t flex gap-2 justify-end">
+      <button class="btn btn-ghost" onclick="closeModal('member-modal')">취소</button>
+      <button class="btn btn-primary" onclick="saveMember()">저장</button>
+    </div>
+  </div>
+</div>
 
-        <section id="income-tab" class="tab-content hidden bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h2 class="text-lg font-bold text-gray-900 mb-4 border-l-4 border-emerald-500 pl-2">재정 수입 입금 등록</h2>
-            <form id="incomeForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">입금일자 *</label>
-                    <input type="date" required id="incomeDate" class="w-full rounded-md border-gray-300 p-2 border">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">회원 검색 및 선택 (이름순 5개 상시 노출 예시) *</label>
-                    <select size="5" id="incomeUserSelect" onchange="calculateMembershipPeriod()" class="w-full rounded-md border-gray-300 p-1 border bg-slate-50 font-mono text-sm">
-                        <option value="강감찬">강감찬 (기수: 15회)</option>
-                        <option value="고길동">고길동 (기수: 22회)</option>
-                        <option value="이순신">이순신 (기수: 12회 - 면제)</option>
-                        <option value="홍길동" selected>홍길동 (기수: 20회 - 당해)</option>
-                        <option value="황진이">황진이 (기수: 25회)</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">입금유형 *</label>
-                    <select id="incomeType" onchange="handleIncomeTypeChange()" class="w-full rounded-md border-gray-300 p-2 border font-semibold text-indigo-700">
-                        <option value="입회비">입회비 (일회성 5만)</option>
-                        <option value="월회비" selected>월회비 (월 1만)</option>
-                        <option value="모임회비">모임회비</option>
-                        <option value="이자">이자</option>
-                        <option value="기타수입">기타수입</option>
-                        <option value="찬조금">찬조금</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">입금 금액(원) *</label>
-                    <input type="text" id="incomeAmount" value="50,000" required onkeyup="formatCurrency(this)" onblur="calculateMembershipPeriod()" class="w-full rounded-md border-gray-300 p-2 border comma-input font-bold text-lg text-right text-gray-900">
-                </div>
-
-                <div id="monthlyFeePeriodArea" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 bg-indigo-50 p-3 rounded-lg border border-indigo-100">
-                    <div>
-                        <label class="block text-xs font-semibold text-indigo-900 mb-1">자격 시작월 (YYYY-MM)</label>
-                        <input type="month" id="startMonth" onchange="recalculateEndMonth()" class="w-full rounded-md border-indigo-300 p-2 border">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-indigo-900 mb-1">자격 종료월 (자동 계산 및 수정 가능)</label>
-                        <input type="month" id="endMonth" class="w-full rounded-md border-indigo-300 p-2 border bg-emerald-50 font-bold text-emerald-800">
-                    </div>
-                </div>
-
-                <div class="md:col-span-3">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">적요 및 비고 사항</label>
-                    <input type="text" id="incomeDesc" placeholder="지정 적요 기재" class="w-full rounded-md border-gray-300 p-2 border">
-                </div>
-                <div class="md:col-span-3 text-right">
-                    <button type="button" onclick="saveIncome()" class="px-6 py-2 bg-emerald-600 text-white font-medium rounded-lg shadow hover:bg-emerald-700 transition">입금 내역 승인</button>
-                </div>
-            </form>
-        </section>
-
-        <section id="expense-tab" class="tab-content hidden bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h2 class="text-lg font-bold text-gray-900 mb-4 border-l-4 border-rose-500 pl-2">재정 지출 출금 등록</h2>
-            <form id="expenseForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">지출일자 *</label>
-                    <input type="date" required class="w-full rounded-md border-gray-300 p-2 border">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">상호(지출처) *</label>
-                    <input type="text" required class="w-full rounded-md border-gray-300 p-2 border">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">출금유형 *</label>
-                    <select class="w-full rounded-md border-gray-300 p-2 border">
-                        <option value="카드">카드</option>
-                        <option value="현금">현금</option>
-                        <option value="기타">기타</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">수량 (선택)</label>
-                    <input type="number" id="expQty" onchange="calcExpenseAmount()" class="w-full rounded-md border-gray-300 p-2 border text-right">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">단가 (선택)</label>
-                    <input type="text" id="expPrice" onkeyup="formatCurrency(this)" onblur="calcExpenseAmount()" class="w-full rounded-md border-gray-300 p-2 border comma-input">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">총 지출 금액 (자동 산출 및 직접 수정 가능) *</label>
-                    <input type="text" id="expAmount" required onkeyup="formatCurrency(this)" class="w-full rounded-md border-gray-300 p-2 border comma-input font-bold text-rose-600 bg-rose-50 text-right">
-                </div>
-                <div class="md:col-span-3">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">적요 및 지출 목적 비고</label>
-                    <input type="text" required class="w-full rounded-md border-gray-300 p-2 border">
-                </div>
-                <div class="md:col-span-3 text-right">
-                    <button type="button" onclick="alert('지출 원장이 정상 반영되었습니다.')" class="px-6 py-2 bg-rose-600 text-white font-medium rounded-lg shadow hover:bg-rose-700 transition">출금 원장 등록</button>
-                </div>
-            </form>
-        </section>
-
-        <section id="search-tab" class="tab-content hidden grid grid-cols-1 gap-6">
-            
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                <h3 class="font-bold text-gray-900 mb-3 text-sm text-indigo-700">1) 현재 기준 회원 명부 마스터 조회</h3>
-                <div class="flex flex-wrap items-end gap-3">
-                    <div class="w-40">
-                        <label class="block text-xs font-medium text-gray-500 mb-1">현재 상태 분류</label>
-                        <select id="searchStatus" class="w-full rounded-md border-gray-300 p-2 border text-sm">
-                            <option value="전체">전체보기</option>
-                            <option value="정상">정상 회원</option>
-                            <option value="상실">상실 회원</option>
-                            <option value="기타">기타 관리</option>
-                        </select>
-                    </div>
-                    <button onclick="exportExcel('회원명부')" class="px-4 py-2 bg-slate-800 text-white font-medium rounded-md hover:bg-slate-900 text-sm flex items-center shadow-sm">
-                        한글 헤더 명부 Excel 다운로드
-                    </button>
-                </div>
-            </div>
-
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                <h3 class="font-bold text-gray-900 mb-2 text-sm text-amber-700">2) 회원 유효기간 실시간 체크 (미납 자격상실 경고 대상)</h3>
-                <p class="text-xs text-gray-500 mb-3">※ 마지막 회비 납부월 기준 12개월 경과 임박순(오름차순)으로 정렬하여 사전 안내를 지원합니다.</p>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm text-left">
-                        <thead class="bg-amber-50 font-semibold text-amber-900">
-                            <tr>
-                                <th class="p-2">성명</th>
-                                <th class="p-2">회원자격 상태</th>
-                                <th class="p-2">최종 유효 연월</th>
-                                <th class="p-2">미납 경과 개월수</th>
-                                <th class="p-2">조치 필요 사항</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 font-mono">
-                            <tr class="bg-red-50 text-red-900">
-                                <td class="p-2 font-sans font-bold">임꺽정</td>
-                                <td class="p-2">정상 (미납 진행)</td>
-                                <td class="p-2">2025-06</td>
-                                <td class="p-2 font-bold">12개월 경과</td>
-                                <td class="p-2 text-xs font-sans text-red-700 font-bold">⚠️ 자격 자동 상실 대상자 (연락 요망)</td>
-                            </tr>
-                            <tr class="text-gray-700">
-                                <td class="p-2 font-sans">고길동</td>
-                                <td class="p-2">정상</td>
-                                <td class="p-2">2025-10</td>
-                                <td class="p-2">8개월 경과</td>
-                                <td class="p-2 text-xs font-sans text-amber-700">만료 4개월 전 안내문자 대상</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="mt-3 text-right">
-                    <button onclick="exportExcel('유효기간체크')" class="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-md hover:bg-amber-700">유효기간 리스트 다운로드</button>
-                </div>
-            </div>
-
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                <h3 class="font-bold text-gray-900 mb-3 text-sm text-emerald-700">3) 기간별 수입/회비 입금 원장 조회</h3>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">입금 유형 필터</label>
-                        <select class="w-full rounded-md border-gray-300 p-2 border text-sm">
-                            <option value="전체">전체 수입유형</option>
-                            <option value="입회비">입회비</option>
-                            <option value="월회비">월회비</option>
-                            <option value="찬조금">찬조금</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">시작일</label>
-                        <input type="date" value="2026-01-01" class="w-full rounded-md border-gray-300 p-2 border text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">종료일</label>
-                        <input type="date" value="2026-12-31" class="w-full rounded-md border-gray-300 p-2 border text-sm">
-                    </div>
-                    <button onclick="exportExcel('입금현황')" class="px-4 py-2 bg-emerald-600 text-white font-medium rounded-md hover:bg-emerald-700 text-sm shadow-sm">
-                        기간별 입금현황 엑셀출력
-                    </button>
-                </div>
-            </div>
-
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                <h3 class="font-bold text-gray-900 mb-3 text-sm text-rose-700">4) 기간별 재정 지출 현황 조회</h3>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">출금 결제 유형</label>
-                        <select class="w-full rounded-md border-gray-300 p-2 border text-sm">
-                            <option value="전체">전체 결제수단</option>
-                            <option value="카드">카드</option>
-                            <option value="현금">현금</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">시작일</label>
-                        <input type="date" value="2026-01-01" class="w-full rounded-md border-gray-300 p-2 border text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">종료일</label>
-                        <input type="date" value="2026-12-31" class="w-full rounded-md border-gray-300 p-2 border text-sm">
-                    </div>
-                    <button onclick="exportExcel('지출현황')" class="px-4 py-2 bg-rose-600 text-white font-medium rounded-md hover:bg-rose-700 text-sm shadow-sm">
-                        기간별 지출원장 엑셀출력
-                    </button>
-                </div>
-            </div>
-
-        </section>
-
-    </main>
+<!-- ══ 입금 수정 모달 ════════════════════════════════════════ -->
+<div class="modal-bg" id="deposit-modal">
+  <div class="modal-box">
+    <div class="flex items-center justify-between p-4 border-b">
+      <h3 class="font-bold text-primary text-lg">입금 내역 수정</h3>
+      <button onclick="closeModal('deposit-modal')" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+    </div>
+    <div class="p-4 space-y-3" id="deposit-modal-body"></div>
+    <div class="p-4 border-t flex gap-2 justify-end">
+      <button class="btn btn-ghost" onclick="closeModal('deposit-modal')">취소</button>
+      <button class="btn btn-primary" onclick="saveDepositModal()">저장</button>
+    </div>
+  </div>
+</div>
 
 <script>
-        // ==========================================
-        // 1. UI 및 인터랙션 제어 모듈
-        // ==========================================
+// ══════════════════════════════════════════════════════════════
+// ★ 설정 필요 ★ — Apps Script 웹앱 URL을 아래에 입력하세요
+// ══════════════════════════════════════════════════════════════
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypNAbsVVvaDLAnfmEg2AKvvslRWX3do-4tun5jNsidH1lAtWG7DHAA4_MSjVCAKQg/exec";
 
-        // 탭 전환 메커니즘
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.getElementById(tabId).classList.remove('hidden');
-            
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('bg-indigo-600', 'text-white');
-                btn.classList.add('bg-white', 'text-gray-600', 'border');
-            });
-            event.currentTarget.classList.add('bg-indigo-600', 'text-white');
-            event.currentTarget.classList.remove('bg-white', 'text-gray-600', 'border');
-        }
+// ── 전역 데이터 캐시 ──────────────────────────────────────────
+let _members     = [];
+let _deposits    = [];
+let _withdrawals = [];
+let _memberFilter = '전체';
 
-        // 고령자 월회비 면제 여부 실시간 체크 로직 (26년도 기준 20회/만70세 이상)
-        function checkElderExempt() {
-            const val = parseInt(document.getElementById('baselineYear').value, 10);
-            const notice = document.getElementById('exemptNotice');
-            if (val && val <= 20) { // 20회 이하인 고령 선배 회원 그룹
-                notice.classList.remove('hidden');
-            } else {
-                notice.classList.add('hidden');
-            }
-        }
-
-        // 자격상실 선택 시 하위 세부 사유 입력 폼 확장 인터페이스
-        function toggleTerminationFields() {
-            const status = document.getElementById('memberStatus').value;
-            const area = document.getElementById('terminationArea');
-            if(status === '상실') {
-                area.classList.remove('hidden');
-            } else {
-                area.classList.add('hidden');
-            }
-        }
-
-        // 화폐 단위 포맷 처리 (천단위 컴마 추가 기능)
-        function formatCurrency(input) {
-            let num = input.value.replace(/[^0-9]/g, ""); // 숫자만 추출
-            if(num === "") { input.value = ""; return; }
-            input.value = parseInt(num, 10).toLocaleString('ko-KR');
-        }
-
-        // 출금단가 연동 계산 엔진
-        function calcExpenseAmount() {
-            const qty = parseInt(document.getElementById('expQty').value, 10) || 0;
-            const priceText = document.getElementById('expPrice').value.replace(/,/g, "") || "0";
-            const price = parseInt(priceText, 10);
-            
-            if(qty > 0 && price > 0) {
-                document.getElementById('expAmount').value = (qty * price).toLocaleString('ko-KR');
-            }
-        }
-
-
-        // ==========================================
-        // 2. 비즈니스 로직 및 기간 연산 모듈
-        // ==========================================
-
-        // 월회비 납부 시 시작월 및 종료월 비즈니스 연산 핵심 로직
-        function calculateMembershipPeriod() {
-            const incomeType = document.getElementById('incomeType').value;
-            if (incomeType !== '월회비') return;
-
-            const startMonthInput = document.getElementById('startMonth');
-            
-            // 실제 데이터 연동 시 구글 시트의 최종 종료월을 가져와 매핑할 수 있도록 설계
-            let dummyLastEndMonth = "2026-05"; 
-            
-            if(dummyLastEndMonth) {
-                let year = parseInt(dummyLastEndMonth.split('-')[0], 10);
-                let month = parseInt(dummyLastEndMonth.split('-')[1], 10);
-                month++;
-                if(month > 12) { month = 1; year++; }
-                startMonthInput.value = `${year}-${String(month).padStart(2, '0')}`;
-            } else {
-                startMonthInput.value = "2026-01";
-            }
-            
-            recalculateEndMonth();
-        }
-
-        function recalculateEndMonth() {
-            const startVal = document.getElementById('startMonth').value;
-            const amtText = document.getElementById('incomeAmount').value.replace(/,/g, "") || "0";
-            const amount = parseInt(amtText, 10);
-            
-            if(!startVal || amount <= 0) return;
-
-            // 납부 금액 기준 회비 유지 개월 수 산출 (월 10,000원 요율)
-            const monthsCovered = Math.floor(amount / 10000);
-            if (monthsCovered <= 0) return;
-            
-            let year = parseInt(startVal.split('-')[0], 10);
-            let month = parseInt(startVal.split('-')[1], 10);
-            
-            month = month + monthsCovered - 1; 
-            while(month > 12) {
-                month -= 12;
-                year++;
-            }
-            
-            document.getElementById('endMonth').value = `${year}-${String(month).padStart(2, '0')}`;
-        }
-
-        function handleIncomeTypeChange() {
-            const type = document.getElementById('incomeType').value;
-            const area = document.getElementById('monthlyFeePeriodArea');
-            const amtInput = document.getElementById('incomeAmount');
-            
-            if(type === '월회비') {
-                area.classList.remove('hidden');
-                amtInput.value = "50,000"; 
-                calculateMembershipPeriod();
-            } else {
-                area.classList.add('hidden');
-                if(type === '입회비') amtInput.value = "50,000";
-            }
-        }
-
-
-        // ==========================================
-        // 3. Google Apps Script 백엔드 연동 통신 모듈
-        // ==========================================
-
-// [수정된 saveMember 함수]
-function saveMember() {
-    // 1. 데이터 수집 (반드시 input 태그에 id="memberName" 등이 있어야 합니다)
-    const payload = {
-        name: document.getElementById('memberName')?.value,
-        phone: document.getElementById('memberPhone')?.value,
-        status: document.getElementById('memberStatus')?.value,
-        baselineYear: document.getElementById('baselineYear')?.value
-    };
-
-    // 2. 구글 웹앱 환경인지 체크 (매우 중요)
-    if (typeof google === 'undefined' || typeof google.script === 'undefined') {
-        alert("알림: 지금은 로컬 파일로 실행 중입니다. 구글 배포 URL로 접속해야 시트 연동이 가능합니다.");
-        console.log("시뮬레이션 데이터:", payload); // 데이터가 잘 모이는지 확인용
-        return;
-    }
-
-    // 3. 정상 환경일 때만 서버 통신
-    google.script.run
-        .withSuccessHandler(function(response) {
-            alert("저장 성공: " + response.message);
-        })
-        .withFailureHandler(function(err) {
-            alert("저장 실패: " + err.message);
-        })
-        .saveMemberData(payload);
+// ══════════════════════════════════════════════════════════════
+// SCRIPT_URL 설정 여부 체크
+// ══════════════════════════════════════════════════════════════
+function isUrlConfigured() {
+  return SCRIPT_URL && SCRIPT_URL !== 'https://script.google.com/macros/s/AKfycbypNAbsVVvaDLAnfmEg2AKvvslRWX3do-4tun5jNsidH1lAtWG7DHAA4_MSjVCAKQg/exec' && SCRIPT_URL.startsWith('http');
 }
 
+/** API 호출 전 URL 체크 — 미설정이면 배너 표시 후 null 반환 */
+function checkUrl() {
+  if (!isUrlConfigured()) {
+    showUrlBanner();
+    return false;
+  }
+  return true;
+}
 
-        // [폼 2] 입금 데이터 무결성 검증 및 저장 처리
-        function saveIncome() {
-            const date = document.getElementById('incomeDate').value;
-            const name = document.getElementById('incomeUserSelect').value;
-            const type = document.getElementById('incomeType').value;
-            const amount = document.getElementById('incomeAmount').value;
-            
-            if(!date || !name) { 
-                alert('입금 일자와 대상 회원을 필수 선택하십시오.'); 
-                return; 
-            }
-            
-            const payload = {
-                incomeDate: date,
-                name: name,
-                incomeType: type,
-                amount: amount,
-                startMonth: type === '월회비' ? document.getElementById('startMonth').value : "",
-                endMonth: type === '월회비' ? document.getElementById('endMonth').value : "",
-                description: document.getElementById('incomeDesc').value,
-                remarks: ""
-            };
+/** 상단 경고 배너 표시 */
+function showUrlBanner() {
+  let banner = document.getElementById('url-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'url-banner';
+    banner.style.cssText = [
+      'position:fixed','top:0','left:0','right:0','z-index:99999',
+      'background:#DC2626','color:#fff','font-size:.9rem','font-weight:700',
+      'padding:.75rem 1.25rem','text-align:center','box-shadow:0 2px 8px rgba(0,0,0,.3)'
+    ].join(';');
+    banner.innerHTML = `
+      ⚠️ SCRIPT_URL이 설정되지 않았습니다.
+      <span style="font-weight:400; margin-left:.5rem;">
+        index.html 상단의 <code style="background:#fff2; padding:.1rem .35rem; border-radius:.25rem;">SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypNAbsVVvaDLAnfmEg2AKvvslRWX3do-4tun5jNsidH1lAtWG7DHAA4_MSjVCAKQg/exec"</code> 부분을 Apps Script 배포 URL로 교체하세요.
+      </span>
+      <button onclick="this.parentElement.remove()" style="margin-left:1rem; background:#fff3; border:none; color:#fff; padding:.2rem .6rem; border-radius:.3rem; cursor:pointer;">✕</button>
+    `;
+    document.body.prepend(banner);
+    // 헤더 위치 보정
+    document.querySelector('header').style.top = banner.offsetHeight + 'px';
+  }
+}
 
-            console.log("구글 스프레드시트 서버와 동기화 중...");
+// ══════════════════════════════════════════════════════════════
+// 공통 유틸
+// ══════════════════════════════════════════════════════════════
 
-            google.script.run
-                .withSuccessHandler(function(response) {
-                    console.log("시트 동기화 완료", response);
-                    if(response && response.status === "SUCCESS") {
-                        alert(response.message);
-                        document.getElementById('incomeDesc').value = "";
-                    } else {
-                        alert("입금 반영 실패: " + (response ? response.message : "알 수 없는 오류"));
-                    }
-                })
-                .withFailureHandler(function(error) {
-                    console.error("구글 서버 통신 치명적 실패:", error);
-                    alert("구글 샌드박스 통신 오류: " + error.message);
-                })
-                .appendIncomeData(payload);
-        }
+/** API 호출 (GET) */
+async function apiGet(params) {
+  if (!checkUrl()) return { success: false, error: 'SCRIPT_URL 미설정' };
+  const url = SCRIPT_URL + '?' + new URLSearchParams(params).toString();
+  showLoading(true);
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    const data = await res.json();
+    return data;
+  } catch(e) {
+    // CORS / 네트워크 에러 상세 안내
+    const msg = e.message.includes('Failed to fetch')
+      ? 'CORS 오류: file:// 대신 웹 서버(GitHub Pages, Live Server 등)로 접속하거나 Apps Script URL을 확인하세요.'
+      : e.message;
+    return { success: false, error: msg };
+  } finally { showLoading(false); }
+}
 
-        // [폼 3] 출금 원장 등록 처리
-        function saveExpense() {
-            const form = document.getElementById('expenseForm');
-            const date = form.elements[0].value;
-            const vendor = form.elements[1].value.trim();
-            const amount = document.getElementById('expAmount').value;
+/** API 호출 (POST) */
+async function apiPost(payload) {
+  if (!checkUrl()) return { success: false, error: 'SCRIPT_URL 미설정' };
+  showLoading(true);
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain' }, // Apps Script CORS 우회: text/plain 사용
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    const data = await res.json();
+    return data;
+  } catch(e) {
+    const msg = e.message.includes('Failed to fetch')
+      ? 'CORS 오류: file:// 대신 웹 서버(GitHub Pages, Live Server 등)로 접속하거나 Apps Script URL을 확인하세요.'
+      : e.message;
+    return { success: false, error: msg };
+  } finally { showLoading(false); }
+}
 
-            if(!date || !vendor || !amount) {
-                alert("지출일자, 상호, 총 지출 금액은 필수 항목입니다.");
-                return;
-            }
+function showLoading(v) {
+  document.getElementById('loading').classList.toggle('show', v);
+}
 
-            const payload = {
-                expenseDate: date,
-                vendor: vendor,
-                expenseType: form.elements[2].value,
-                quantity: document.getElementById('expQty').value,
-                unitPrice: document.getElementById('expPrice').value,
-                amount: amount,
-                description: form.elements[6].value,
-                remarks: ""
-            };
+/** 토스트 알림 */
+function toast(msg, ok = true) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = ok ? '#16A34A' : '#DC2626';
+  el.style.color = '#fff';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
 
-            console.log("구글 스프레드시트 지출원장 동기화 중...");
+/** 전화번호 자동 포맷 */
+function fmtPhone(el) {
+  let v = el.value.replace(/\D/g, '');
+  if (v.length <= 3) el.value = v;
+  else if (v.length <= 7) el.value = v.slice(0,3)+'-'+v.slice(3);
+  else el.value = v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7,11);
+}
 
-            google.script.run
-                .withSuccessHandler(function(response) {
-                    if(response && response.status === "SUCCESS") {
-                        alert(response.message);
-                        form.reset();
-                    } else {
-                        alert("출금 반영 실패: " + (response ? response.message : "알 수 없는 오류"));
-                    }
-                })
-                .withFailureHandler(function(error) {
-                    console.error("구글 서버 통신 치명적 실패:", error);
-                    alert("구글 샌드박스 통신 오류: " + error.message);
-                })
-                .appendExpenseData(payload);
-        }
+/** 금액 천단위 콤마 */
+function fmtAmount(el) {
+  const raw = el.value.replace(/[^\d]/g, '');
+  el.value  = raw ? Number(raw).toLocaleString('ko-KR') : '';
+  el.dataset.raw = raw;
+}
 
-        // [기능 4] 조회 원장 데이터 기반 브라우저 다운로드 엔진
-        function exportExcel(menuTitle) {
-            let filterValue = "전체";
-            if (menuTitle === "회원명부") {
-                filterValue = document.getElementById('searchStatus').value;
-            }
-            
-            console.log(menuTitle + " 추출 데이터 요청 중...");
-            
-            google.script.run
-                .withSuccessHandler(function(dataRows) {
-                    if(!dataRows || dataRows.length <= 1) {
-                        alert("조회된 데이터가 존재하지 않습니다.");
-                        return;
-                    }
-                    
-                    // CSV 변환 및 다운로드 블롭(Blob) 생성 엔진 가동
-                    let csvContent = "\uFEFF"; // 한글 깨짐 예방 BOM 지정
-                    dataRows.forEach(function(row) {
-                        let processedRow = row.map(value => {
-                            let str = value ? String(value).replace(/"/g, '""') : "";
-                            return '"' + str + '"';
-                        });
-                        csvContent += processedRow.join(",") + "\r\n";
-                    });
-                    
-                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                    const link = document.createElement("a");
-                    const url = URL.createObjectURL(blob);
-                    
-                    link.setAttribute("href", url);
-                    link.setAttribute("download", menuTitle + "_" + new Date().toISOString().substring(0,10) + ".csv");
-                    link.style.visibility = 'hidden';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                })
-                .withFailureHandler(function(error) {
-                    alert("데이터 추출 실패: " + error.message);
-                })
-                .getExportData(menuTitle, filterValue);
-        }
+function parseAmount(el) {
+  return parseInt((el.dataset.raw || el.value.replace(/[^\d]/g,'')), 10) || 0;
+}
 
-        // 초기 화면 구동 세팅
-        window.onload = function() {
-            document.getElementById('incomeDate').value = new Date().toISOString().substring(0, 10);
-            handleIncomeTypeChange();
-            
-            // 기존 폼의 버튼들에 신규 이벤트 바인딩 가이드 적용
-            document.querySelector("#memberForm button").setAttribute("onclick", "saveMember()");
-            document.querySelector("#incomeForm button").setAttribute("onclick", "saveIncome()");
-            document.querySelector("#expenseForm button").setAttribute("onclick", "saveExpense()");
-        };
-    </script>
+/** 날짜 표시 형식 YYYY-MM-DD */
+function fmtDate(v) {
+  if (!v) return '';
+  return String(v).substring(0, 10);
+}
 
+/** YYYY-MM 월 표시 */
+function fmtMonth(v) {
+  if (!v) return '';
+  return String(v).substring(0, 7);
+}
+
+/** 회원상태 뱃지 HTML */
+function statusBadge(s) {
+  const cls = { '취득':'badge-취득', '상실':'badge-상실' }[s] || 'badge-기타';
+  return `<span class="badge ${cls}">${s||'-'}</span>`;
+}
+
+/** 입금유형 뱃지 */
+function typeBadge(t) {
+  const map = {
+    '입회비':'badge-입회비','월회비':'badge-월회비','모임회비':'badge-모임회비',
+    '찬조(현금)':'badge-찬조','찬조(현물)':'badge-찬조','기타수입':'badge-기타수입'
+  };
+  return `<span class="badge ${map[t]||'badge-기타수입'}">${t||'-'}</span>`;
+}
+
+/** 입력 오류 표시 */
+function showErr(id, msg) {
+  const inp = document.getElementById(id);
+  const err = document.getElementById(id+'-err');
+  if (inp) inp.classList.add('error');
+  if (err) { err.textContent = msg; err.classList.remove('hidden'); }
+}
+function clearErr(id) {
+  const inp = document.getElementById(id);
+  const err = document.getElementById(id+'-err');
+  if (inp) inp.classList.remove('error');
+  if (err) err.classList.add('hidden');
+}
+
+/** CSV 다운로드 */
+function exportCsv(tableId, name) {
+  const tbl = document.getElementById(tableId);
+  if (!tbl) return;
+  const rows = [...tbl.querySelectorAll('tr')];
+  const csv  = rows.map(r =>
+    [...r.querySelectorAll('th,td')]
+      .map(c => '"'+c.textContent.trim().replace(/"/g,'""')+'"')
+      .join(',')
+  ).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = name+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 탭 네비게이션
+// ══════════════════════════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const pane = document.getElementById('pane-'+btn.dataset.tab);
+    if (pane) pane.classList.add('active');
+    if (btn.dataset.tab === 'members')     loadMembers();
+    if (btn.dataset.tab === 'deposits')    loadDeposits();
+    if (btn.dataset.tab === 'withdrawals') loadWithdrawals();
+  });
+});
+
+// 현황검색 서브탭
+function setSrchTab(el, targetId) {
+  document.querySelectorAll('.srch-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  ['srch-members','srch-deposits','srch-withdrawals','srch-validity'].forEach(id => {
+    document.getElementById(id).classList.toggle('hidden', id !== targetId);
+  });
+}
+
+// 모달 열기/닫기
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+// ══════════════════════════════════════════════════════════════
+// 탭1: 회원관리
+// ══════════════════════════════════════════════════════════════
+async function loadMembers() {
+  const res = await apiGet({ action:'getMembers' });
+  if (!res.success) { toast('회원 데이터 로드 실패: '+res.error, false); return; }
+  _members = res.data || [];
+  renderMembersTable();
+  // 입금탭 드롭다운 업데이트
+  updateMemberDropdown();
+}
+
+function setMemberFilter(el, filter) {
+  _memberFilter = filter;
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderMembersTable();
+}
+
+function renderMembersTable() {
+  const data = _memberFilter === '전체'
+    ? _members
+    : _members.filter(m => m.status === _memberFilter);
+
+  const tbody = document.getElementById('members-tbody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-gray-400">해당하는 회원이 없습니다.</td></tr>';
+    return;
+  }
+
+  // 입회비 납부일: deposit에서 조회
+  tbody.innerHTML = data.map((m, i) => {
+    const joinDep = _deposits.find(d => d.name === m.name && d.type === '입회비');
+    const joinDateDisplay = joinDep ? fmtDate(joinDep.deposit_date) : fmtDate(m.join_date);
+    return `<tr>
+      <td class="font-semibold">${m.name||''}</td>
+      <td>${m.phone||''}</td>
+      <td>${statusBadge(m.status)}</td>
+      <td>${m.kisu_yn||''}</td>
+      <td>${m.kisu_yn==='Y'?'<span class="text-green-600 font-bold">면제</span>':''}</td>
+      <td>${m.contact_type||''}</td>
+      <td class="text-xs">${joinDateDisplay}</td>
+      <td class="text-xs">${fmtMonth(m.exit_date)}</td>
+      <td>${m.loss_type||''}</td>
+      <td>
+        <div class="flex gap-1">
+          <button class="btn btn-accent btn-sm" onclick="openMemberModal('${m.id}')">수정</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteMember('${m.id}','${m.name}')">삭제</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/** 회원 모달 (신규/수정) */
+function openMemberModal(id = '') {
+  clearErr('m-name'); clearErr('m-phone');
+  if (id) {
+    const m = _members.find(x => x.id === id);
+    if (!m) return;
+    document.getElementById('member-modal-title').textContent = '회원 수정';
+    document.getElementById('m-id').value           = m.id;
+    document.getElementById('m-name').value         = m.name||'';
+    document.getElementById('m-phone').value        = m.phone||'';
+    document.getElementById('m-status').value       = m.status||'취득';
+    document.getElementById('m-kisu').value         = m.kisu_yn||'';
+    document.getElementById('m-kisu-yn').value      = m.kisu_yn||'N';
+    document.getElementById('m-contact-type').value = m.contact_type||'카카오';
+    document.getElementById('m-exit-date').value    = fmtMonth(m.exit_date);
+    document.getElementById('m-loss-type').value    = m.loss_type||'';
+    document.getElementById('m-note').value         = m.note||'';
+  } else {
+    document.getElementById('member-modal-title').textContent = '회원 등록';
+    document.getElementById('m-id').value           = '';
+    document.getElementById('m-name').value         = '';
+    document.getElementById('m-phone').value        = '';
+    document.getElementById('m-status').value       = '취득';
+    document.getElementById('m-kisu').value         = '';
+    document.getElementById('m-kisu-yn').value      = 'N';
+    document.getElementById('m-contact-type').value = '카카오';
+    document.getElementById('m-exit-date').value    = '';
+    document.getElementById('m-loss-type').value    = '';
+    document.getElementById('m-note').value         = '';
+  }
+  openModal('member-modal');
+}
+
+async function saveMember() {
+  let ok = true;
+  const name  = document.getElementById('m-name').value.trim();
+  const phone = document.getElementById('m-phone').value.trim();
+  if (!name)  { showErr('m-name','이름을 입력하세요.'); ok=false; } else clearErr('m-name');
+  if (!phone) { showErr('m-phone','연락처를 입력하세요.'); ok=false; } else clearErr('m-phone');
+  if (!ok) return;
+
+  const data = {
+    id:           document.getElementById('m-id').value,
+    name,
+    phone,
+    status:       document.getElementById('m-status').value,
+    kisu_yn:      document.getElementById('m-kisu-yn').value,
+    contact_type: document.getElementById('m-contact-type').value,
+    exit_date:    document.getElementById('m-exit-date').value,
+    loss_type:    document.getElementById('m-loss-type').value,
+    note:         document.getElementById('m-note').value,
+    join_date:    ''
+  };
+
+  const action = data.id ? 'updateMember' : 'addMember';
+  const res = await apiPost({ action, data });
+  if (res.success) {
+    toast(data.id ? '회원 정보가 수정되었습니다.' : '신규 회원이 등록되었습니다.');
+    closeModal('member-modal');
+    loadMembers();
+  } else {
+    toast('저장 실패: ' + res.error, false);
+  }
+}
+
+async function deleteMember(id, name) {
+  if (!confirm(`"${name}" 회원 정보를 삭제하시겠습니까?`)) return;
+  const res = await apiPost({ action:'deleteMember', id });
+  if (res.success) { toast('회원이 삭제되었습니다.'); loadMembers(); }
+  else toast('삭제 실패: '+res.error, false);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 탭2: 입금관리
+// ══════════════════════════════════════════════════════════════
+let _depositEditId = '';
+
+async function loadDeposits() {
+  const res = await apiGet({ action:'getDeposits' });
+  if (!res.success) { toast('입금 데이터 로드 실패', false); return; }
+  _deposits = res.data || [];
+  renderDepositsTable();
+  renderDepositForm();
+}
+
+/** 회원 드롭다운 갱신 */
+function updateMemberDropdown() {
+  const sel = document.getElementById('d-member');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">회원 선택</option>' +
+    _members.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+  if (current) sel.value = current;
+}
+
+/** 입금 폼 동적 렌더링 */
+function renderDepositForm(type = '') {
+  const wrap = document.getElementById('deposit-form-wrap');
+  const selectedType = type || document.getElementById('d-type')?.value || '입회비';
+
+  wrap.innerHTML = `
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">회원 선택 <span class="text-red-500">*</span></label>
+        <select class="inp" id="d-member">
+          <option value="">회원 선택</option>
+          ${_members.map(m=>`<option value="${m.name}">${m.name}</option>`).join('')}
+        </select>
+        <div class="err-msg hidden" id="d-member-err">회원을 선택하세요.</div>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">입금유형 <span class="text-red-500">*</span></label>
+        <select class="inp" id="d-type" onchange="onDepositTypeChange()">
+          <option value="입회비">입회비</option>
+          <option value="월회비">월회비</option>
+          <option value="모임회비">모임회비</option>
+          <option value="찬조(현금)">찬조(현금)</option>
+          <option value="찬조(현물)">찬조(현물)</option>
+          <option value="기타수입">기타수입</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">입금일 <span class="text-red-500">*</span></label>
+        <input class="inp" id="d-date" type="date" value="${todayStr()}" onchange="calcMonthRange()">
+        <div class="err-msg hidden" id="d-date-err">입금일을 선택하세요.</div>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">금액 <span class="text-red-500">*</span></label>
+        <input class="inp" id="d-amount" placeholder="0" oninput="fmtAmount(this); calcMonthRange();">
+        <div class="err-msg hidden" id="d-amount-err">금액을 입력하세요.</div>
+      </div>
+      <div id="d-month-range-wrap" class="hidden">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">시작월</label>
+            <input class="inp" id="d-start" placeholder="YYYY-MM">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">종료월(상실예정)</label>
+            <input class="inp" id="d-end" placeholder="YYYY-MM">
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-1">* 자동 계산됩니다. 수정 가능.</p>
+      </div>
+      <div id="d-joindate-wrap" class="hidden">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">취득월 <span class="text-gray-400 font-normal">(입회비 납부연월)</span></label>
+        <input class="inp" id="d-joindate" placeholder="YYYY-MM">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">비고</label>
+        <textarea class="inp" id="d-note" rows="2" placeholder="비고"></textarea>
+      </div>
+      <input type="hidden" id="d-id">
+    </div>`;
+
+  document.getElementById('d-type').value = selectedType;
+  onDepositTypeChange();
+}
+
+function onDepositTypeChange() {
+  const type = document.getElementById('d-type').value;
+  const monthWrap = document.getElementById('d-month-range-wrap');
+  const joinWrap  = document.getElementById('d-joindate-wrap');
+  monthWrap.classList.toggle('hidden', type !== '월회비');
+  joinWrap.classList.toggle('hidden', type !== '입회비');
+  if (type === '월회비') {
+    // 금액 기본값: 10000
+    const amtEl = document.getElementById('d-amount');
+    if (!amtEl.dataset.raw) { amtEl.value = '10,000'; amtEl.dataset.raw = '10000'; }
+    calcMonthRange();
+  } else if (type === '입회비') {
+    const amtEl = document.getElementById('d-amount');
+    if (!amtEl.dataset.raw) { amtEl.value = '50,000'; amtEl.dataset.raw = '50000'; }
+    // 취득월 = 입금일 년월
+    const dateEl = document.getElementById('d-date');
+    if (dateEl.value) document.getElementById('d-joindate').value = dateEl.value.substring(0,7);
+  }
+}
+
+/** 월회비 시작월/종료월 자동 계산 */
+function calcMonthRange() {
+  if (document.getElementById('d-type')?.value !== '월회비') return;
+  const member = document.getElementById('d-member')?.value;
+  const amount = parseAmount(document.getElementById('d-amount'));
+  const date   = document.getElementById('d-date')?.value;
+  if (!amount || !date) return;
+
+  // 시작월 계산
+  let startMonth = '';
+  if (member) {
+    const monthlyDeps = _deposits.filter(d => d.name === member && d.type === '월회비')
+      .sort((a,b) => new Date(b.end_month+'-01') - new Date(a.end_month+'-01'));
+    if (monthlyDeps.length > 0) {
+      const lastEnd = monthlyDeps[0].end_month;
+      const d = new Date(lastEnd + '-01');
+      d.setMonth(d.getMonth() + 1);
+      startMonth = d.toISOString().substring(0, 7);
+    } else {
+      // 입회비 납부월
+      const joinDep = _deposits.find(d => d.name === member && d.type === '입회비');
+      if (joinDep) startMonth = fmtDate(joinDep.deposit_date).substring(0,7);
+    }
+  }
+  if (!startMonth) startMonth = date.substring(0, 7);
+
+  // 종료월 = 시작월 포함 months개월 후
+  const months = Math.floor(amount / 10000);
+  const endDate = new Date(startMonth + '-01');
+  endDate.setMonth(endDate.getMonth() + months - 1);
+  const endMonth = endDate.toISOString().substring(0, 7);
+
+  document.getElementById('d-start').value = startMonth;
+  document.getElementById('d-end').value   = endMonth;
+}
+
+function renderDepositsTable() {
+  const sorted = [..._deposits].sort((a,b) => new Date(b.deposit_date) - new Date(a.deposit_date));
+  const tbody  = document.getElementById('deposits-tbody');
+  document.getElementById('deposit-count').textContent = `총 ${sorted.length}건`;
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-400">입금 내역이 없습니다.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sorted.map(d => `<tr>
+    <td class="font-semibold">${d.name||''}</td>
+    <td>${typeBadge(d.type)}</td>
+    <td>${fmtDate(d.deposit_date)}</td>
+    <td class="text-right font-mono">${Number(d.amount||0).toLocaleString('ko-KR')}원</td>
+    <td class="text-xs">${fmtMonth(d.start_month)}</td>
+    <td class="text-xs">${fmtMonth(d.end_month)}</td>
+    <td class="text-xs max-w-xs truncate">${d.note||''}</td>
+    <td>
+      <div class="flex gap-1">
+        <button class="btn btn-accent btn-sm" onclick="openDepositModal('${d.id}')">수정</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteDeposit('${d.id}')">삭제</button>
+      </div>
+    </td>
+  </tr>`).join('');
+}
+
+/** 입금 저장 (신규) */
+async function submitDeposit() {
+  let ok = true;
+  if (!document.getElementById('d-member')?.value) { showErr('d-member','회원을 선택하세요.'); ok=false; } else clearErr('d-member');
+  if (!document.getElementById('d-date')?.value)   { showErr('d-date','입금일을 선택하세요.'); ok=false; } else clearErr('d-date');
+  const amtEl = document.getElementById('d-amount');
+  if (!parseAmount(amtEl)) { showErr('d-amount','금액을 입력하세요.'); ok=false; } else clearErr('d-amount');
+  if (!ok) return;
+
+  const type = document.getElementById('d-type').value;
+  const data = {
+    id: document.getElementById('d-id').value || '',
+    name: document.getElementById('d-member').value,
+    type,
+    deposit_date: document.getElementById('d-date').value,
+    amount: parseAmount(document.getElementById('d-amount')),
+    start_month: type === '월회비' ? (document.getElementById('d-start')?.value||'') : '',
+    end_month:   type === '월회비' ? (document.getElementById('d-end')?.value||'')   : '',
+    note: document.getElementById('d-note').value
+  };
+
+  // 입회비 → join_date도 업데이트
+  if (type === '입회비') {
+    data.start_month = document.getElementById('d-joindate')?.value || data.deposit_date.substring(0,7);
+  }
+
+  const action = data.id ? 'updateDeposit' : 'addDeposit';
+  const res = await apiPost({ action, data });
+  if (res.success) {
+    toast('입금 내역이 저장되었습니다.');
+    clearDepositForm();
+    loadDeposits();
+  } else toast('저장 실패: '+res.error, false);
+}
+
+function clearDepositForm() {
+  _depositEditId = '';
+  renderDepositForm('입회비');
+}
+
+/** 입금 수정 모달 */
+function openDepositModal(id) {
+  const d = _deposits.find(x => x.id === id);
+  if (!d) return;
+  const body = document.getElementById('deposit-modal-body');
+  body.innerHTML = `
+    <input type="hidden" id="dm-id" value="${d.id}">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">입금자명</label>
+        <input class="inp" id="dm-name" value="${d.name||''}">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">입금유형</label>
+        <select class="inp" id="dm-type">
+          ${['입회비','월회비','모임회비','찬조(현금)','찬조(현물)','기타수입'].map(t=>`<option ${t===d.type?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">입금일</label>
+        <input class="inp" id="dm-date" type="date" value="${fmtDate(d.deposit_date)}">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">금액</label>
+        <input class="inp" id="dm-amount" value="${Number(d.amount||0).toLocaleString('ko-KR')}" oninput="fmtAmount(this)" data-raw="${d.amount||0}">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">시작월</label>
+        <input class="inp" id="dm-start" value="${fmtMonth(d.start_month)}">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">종료월</label>
+        <input class="inp" id="dm-end" value="${fmtMonth(d.end_month)}">
+      </div>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1">비고</label>
+      <textarea class="inp" id="dm-note" rows="2">${d.note||''}</textarea>
+    </div>`;
+  openModal('deposit-modal');
+}
+
+async function saveDepositModal() {
+  const data = {
+    id:           document.getElementById('dm-id').value,
+    name:         document.getElementById('dm-name').value,
+    type:         document.getElementById('dm-type').value,
+    deposit_date: document.getElementById('dm-date').value,
+    amount:       parseAmount(document.getElementById('dm-amount')),
+    start_month:  document.getElementById('dm-start').value,
+    end_month:    document.getElementById('dm-end').value,
+    note:         document.getElementById('dm-note').value
+  };
+  const res = await apiPost({ action:'updateDeposit', data });
+  if (res.success) {
+    toast('입금 내역이 수정되었습니다.');
+    closeModal('deposit-modal');
+    loadDeposits();
+  } else toast('수정 실패: '+res.error, false);
+}
+
+async function deleteDeposit(id) {
+  if (!confirm('이 입금 내역을 삭제하시겠습니까?')) return;
+  const res = await apiPost({ action:'deleteDeposit', id });
+  if (res.success) { toast('삭제되었습니다.'); loadDeposits(); }
+  else toast('삭제 실패: '+res.error, false);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 탭3: 출금관리
+// ══════════════════════════════════════════════════════════════
+async function loadWithdrawals() {
+  const res = await apiGet({ action:'getWithdrawals' });
+  if (!res.success) { toast('출금 데이터 로드 실패', false); return; }
+  _withdrawals = res.data || [];
+  renderWithdrawalsTable();
+}
+
+function renderWithdrawalsTable() {
+  const tbody = document.getElementById('withdrawals-tbody');
+  if (!_withdrawals.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-400">출금 내역이 없습니다.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = _withdrawals.map(w => `<tr>
+    <td>${w.name||''}</td>
+    <td>${w.manager||''}</td>
+    <td>${fmtDate(w.withdrawal_date)}</td>
+    <td class="text-right font-mono">${Number(w.amount||0).toLocaleString('ko-KR')}원</td>
+    <td>${w.company||''}</td>
+    <td class="text-xs max-w-xs truncate">${w.summary||''}</td>
+    <td class="text-xs">${w.note||''}</td>
+    <td>
+      <div class="flex gap-1">
+        <button class="btn btn-accent btn-sm" onclick="editWithdrawal('${w.id}')">수정</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteWithdrawal('${w.id}')">삭제</button>
+      </div>
+    </td>
+  </tr>`).join('');
+}
+
+async function submitWithdrawal() {
+  let ok = true;
+  const nameEl   = document.getElementById('w-name');
+  const dateEl   = document.getElementById('w-date');
+  const amountEl = document.getElementById('w-amount');
+  if (!nameEl.value.trim())    { showErr('w-name','출금명칭을 입력하세요.'); ok=false; } else clearErr('w-name');
+  if (!dateEl.value)           { showErr('w-date','출금일을 선택하세요.'); ok=false; } else clearErr('w-date');
+  if (!parseAmount(amountEl))  { showErr('w-amount','금액을 입력하세요.'); ok=false; } else clearErr('w-amount');
+  if (!ok) return;
+
+  const data = {
+    id:              document.getElementById('w-id').value || '',
+    name:            nameEl.value.trim(),
+    manager:         document.getElementById('w-manager').value,
+    withdrawal_date: dateEl.value,
+    amount:          parseAmount(amountEl),
+    company:         document.getElementById('w-company').value,
+    summary:         document.getElementById('w-summary').value,
+    note:            document.getElementById('w-note').value
+  };
+
+  const action = data.id ? 'updateWithdrawal' : 'addWithdrawal';
+  const res = await apiPost({ action, data });
+  if (res.success) {
+    toast('출금 내역이 저장되었습니다.');
+    clearWithdrawalForm();
+    loadWithdrawals();
+  } else toast('저장 실패: '+res.error, false);
+}
+
+function editWithdrawal(id) {
+  const w = _withdrawals.find(x => x.id === id);
+  if (!w) return;
+  document.getElementById('w-id').value      = w.id;
+  document.getElementById('w-name').value    = w.name||'';
+  document.getElementById('w-manager').value = w.manager||'';
+  document.getElementById('w-date').value    = fmtDate(w.withdrawal_date);
+  const amtEl = document.getElementById('w-amount');
+  amtEl.value = Number(w.amount||0).toLocaleString('ko-KR');
+  amtEl.dataset.raw = w.amount||0;
+  document.getElementById('w-company').value = w.company||'';
+  document.getElementById('w-summary').value = w.summary||'';
+  document.getElementById('w-note').value    = w.note||'';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function deleteWithdrawal(id) {
+  if (!confirm('이 출금 내역을 삭제하시겠습니까?')) return;
+  const res = await apiPost({ action:'deleteWithdrawal', id });
+  if (res.success) { toast('삭제되었습니다.'); loadWithdrawals(); }
+  else toast('삭제 실패: '+res.error, false);
+}
+
+function clearWithdrawalForm() {
+  ['w-id','w-name','w-manager','w-date','w-company','w-summary','w-note'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  const amtEl = document.getElementById('w-amount');
+  amtEl.value = ''; amtEl.dataset.raw = '';
+  ['w-name','w-date','w-amount'].forEach(clearErr);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 탭4: 현황검색
+// ══════════════════════════════════════════════════════════════
+
+/** 회원명부 */
+async function runSearchMembers() {
+  const status = document.getElementById('srch-m-status').value;
+  const res    = await apiGet({ action:'searchMembers', status });
+  if (!res.success) { toast('검색 실패: '+res.error, false); return; }
+  const data   = res.data || [];
+  document.getElementById('srch-m-cnt').textContent = `${data.length}건`;
+  const tbody  = document.getElementById('srch-m-tbody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-400">검색 결과가 없습니다.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map((m, i) => `<tr>
+    <td>${i+1}</td>
+    <td class="font-semibold">${m.name||''}</td>
+    <td>${m.phone||''}</td>
+    <td>${statusBadge(m.status)}</td>
+    <td class="text-xs">${fmtDate(m.join_date)}</td>
+    <td class="text-xs">${fmtMonth(m.exit_date)}</td>
+  </tr>`).join('');
+}
+
+/** 입금현황 */
+function initSearchDepositsDefaults() {
+  const fromEl = document.getElementById('srch-d-from');
+  const toEl   = document.getElementById('srch-d-to');
+  if (!fromEl.value) fromEl.value = '2026-06-01';
+  if (!toEl.value)   toEl.value   = todayStr();
+}
+
+async function runSearchDeposits() {
+  initSearchDepositsDefaults();
+  const type = document.getElementById('srch-d-type').value;
+  const from = document.getElementById('srch-d-from').value;
+  const to   = document.getElementById('srch-d-to').value;
+  const res  = await apiGet({ action:'searchDeposits', type, from, to });
+  if (!res.success) { toast('검색 실패: '+res.error, false); return; }
+  const data = res.data || [];
+  document.getElementById('srch-d-cnt').textContent = `${data.length}건`;
+  const tbody = document.getElementById('srch-d-tbody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-400">검색 결과가 없습니다.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(d => `<tr>
+    <td>${fmtDate(d.deposit_date)}</td>
+    <td>${statusBadge(d.member_status)}</td>
+    <td>${d.name||''}</td>
+    <td>${typeBadge(d.type)}</td>
+    <td class="text-right font-mono">${Number(d.amount||0).toLocaleString('ko-KR')}원</td>
+    <td class="text-xs">${d.note||''}</td>
+  </tr>`).join('');
+}
+
+/** 출금현황 */
+async function runSearchWithdrawals() {
+  const from = document.getElementById('srch-w-from').value;
+  const to   = document.getElementById('srch-w-to').value;
+  const res  = await apiGet({ action:'searchWithdrawals', from, to });
+  if (!res.success) { toast('검색 실패: '+res.error, false); return; }
+  const data = res.data || [];
+  document.getElementById('srch-w-cnt').textContent = `${data.length}건`;
+  const tbody = document.getElementById('srch-w-tbody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-400">검색 결과가 없습니다.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(w => `<tr>
+    <td>${fmtDate(w.withdrawal_date)}</td>
+    <td>${w.name||''}</td>
+    <td>${w.manager||''}</td>
+    <td class="text-right font-mono">${Number(w.amount||0).toLocaleString('ko-KR')}원</td>
+    <td>${w.company||''}</td>
+    <td class="text-xs">${w.summary||''}</td>
+    <td class="text-xs">${w.note||''}</td>
+  </tr>`).join('');
+}
+
+/** 자격 유효기간 */
+async function runSearchValidity() {
+  const status = document.getElementById('srch-v-status').value;
+  const res    = await apiGet({ action:'searchValidity', status });
+  if (!res.success) { toast('검색 실패: '+res.error, false); return; }
+  const data   = res.data || [];
+  document.getElementById('srch-v-cnt').textContent = `${data.length}건`;
+  const tbody  = document.getElementById('srch-v-tbody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-400">검색 결과가 없습니다.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map((m, i) => `<tr>
+    <td>${i+1}</td>
+    <td class="font-semibold">${m.name||''}</td>
+    <td>${m.phone||''}</td>
+    <td>${statusBadge(m.status)}</td>
+    <td class="text-xs">${fmtDate(m.join_date)}</td>
+    <td class="text-xs">${fmtMonth(m.exit_date)}</td>
+    <td class="font-semibold ${expiryColor(m.expiry_month)}">${fmtMonth(m.expiry_month)}</td>
+  </tr>`).join('');
+}
+
+/** 상실예정월 색상: 6개월 이내 빨강, 12개월 이내 주황 */
+function expiryColor(month) {
+  if (!month) return '';
+  const diff = monthDiff(new Date(), new Date(month+'-01'));
+  if (diff <= 3)  return 'text-red-600';
+  if (diff <= 6)  return 'text-orange-500';
+  if (diff <= 12) return 'text-yellow-600';
+  return 'text-green-700';
+}
+function monthDiff(a, b) {
+  return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+}
+
+// ══════════════════════════════════════════════════════════════
+// 헬퍼
+// ══════════════════════════════════════════════════════════════
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+// ══════════════════════════════════════════════════════════════
+// 초기 로드
+// ══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async () => {
+  // 출금일 기본값 오늘
+  const wDate = document.getElementById('w-date');
+  if (wDate) wDate.value = todayStr();
+  // 입금 현황 기본 날짜
+  initSearchDepositsDefaults();
+
+  // SCRIPT_URL 미설정 시 경고 배너 + 테이블 안내 메시지
+  if (!isUrlConfigured()) {
+    showUrlBanner();
+    const guideHtml = `<tr><td colspan="20" class="text-center py-10">
+      <div style="color:#DC2626;font-weight:700;font-size:1rem;">⚠️ SCRIPT_URL을 설정해야 데이터를 불러올 수 있습니다.</div>
+      <div class="text-gray-500 text-sm mt-2">index.html 파일의 SCRIPT_URL을 Apps Script 배포 URL로 교체한 뒤<br>
+      <b>GitHub Pages 또는 로컬 서버(Live Server)</b>로 접속하세요.<br>
+      <span style="color:#EF4444">file:// 직접 열기(더블클릭)는 보안상 API 호출이 차단됩니다.</span></div>
+    </td></tr>`;
+    ["members-tbody","deposits-tbody","withdrawals-tbody"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = guideHtml;
+    });
+    renderDepositForm("입회비");
+    return;
+  }
+
+  // 첫 탭 로드
+  await loadMembers();
+  await loadDeposits();
+  renderDepositForm("입회비");
+});
+</script>
 </body>
 </html>
-
