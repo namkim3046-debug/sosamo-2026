@@ -10,7 +10,7 @@
 <!--
   ★ 설정 필요 ★
   아래 SCRIPT_URL을 Apps Script 웹앱 배포 URL로 교체하세요.
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzMzu0Gg4w4O7TbP9S604lYJDZ6KTWUkxWo1LelcstO1jSFKJNpxHtTMSqQGqRR6CZU_g/exec";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyX4NWHdNtzs1zeGl9YNa2fV89Bj7UlOYVQEeokWKm0QbasW8aO9-M-Rfj-YK3vcDZIsA/exec";
 -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
@@ -416,24 +416,22 @@
         <div>
           <label class="block text-xs font-semibold text-gray-600 mb-1">연락유형</label>
           <select class="inp" id="m-contact-type">
-            <option value="카카오">카카오</option>
-            <option value="전화">전화</option>
+            <option value="카톡">카톡</option>
             <option value="문자">문자</option>
+            <option value="전화">전화</option>
             <option value="기타">기타</option>
           </select>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">상실월 <span class="text-gray-400 font-normal">(YYYY-MM)</span></label>
-          <input class="inp" id="m-exit-date" placeholder="2026-12">
+          <label class="block text-xs font-semibold text-gray-600 mb-1">상실월</label>
+          <input class="inp" id="m-exit-date" type="month">
         </div>
         <div>
           <label class="block text-xs font-semibold text-gray-600 mb-1">상실유형</label>
           <select class="inp" id="m-loss-type">
             <option value="">-</option>
-            <option value="자진탈퇴">자진탈퇴</option>
+            <option value="본인희망">본인희망</option>
             <option value="회비미납">회비미납</option>
-            <option value="제명">제명</option>
-            <option value="사망">사망</option>
             <option value="기타">기타</option>
           </select>
         </div>
@@ -469,7 +467,7 @@
 // ══════════════════════════════════════════════════════════════
 // ★ 설정 필요 ★ — Apps Script 웹앱 URL을 아래에 입력하세요
 // ══════════════════════════════════════════════════════════════
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzMzu0Gg4w4O7TbP9S604lYJDZ6KTWUkxWo1LelcstO1jSFKJNpxHtTMSqQGqRR6CZU_g/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyX4NWHdNtzs1zeGl9YNa2fV89Bj7UlOYVQEeokWKm0QbasW8aO9-M-Rfj-YK3vcDZIsA/exec";
 
 // ── 전역 데이터 캐시 ──────────────────────────────────────────
 let _members     = [];
@@ -763,7 +761,7 @@ function renderMembersTable() {
       <td>${m.phone||''}</td>
       <td>${statusBadge(m.status)}</td>
       <td>${m.kisu||''}</td>
-      <td>${m.kisu_yn==='Y'?'<span class="text-green-600 font-bold">면제</span>':''}</td>
+      <td>${String(m.kisu_yn).trim().toUpperCase()==='Y'?'<span class="text-green-600 font-bold">면제</span>':''}</td>
       <td>${m.contact_type||''}</td>
       <td class="text-xs">${joinDateDisplay}</td>
       <td class="text-xs">${fmtMonth(m.exit_date)}</td>
@@ -791,7 +789,7 @@ function openMemberModal(id = '') {
     document.getElementById('m-status').value       = m.status||'취득';
     document.getElementById('m-kisu').value         = m.kisu||'';
     document.getElementById('m-kisu-yn').value      = m.kisu_yn||'N';
-    document.getElementById('m-contact-type').value = m.contact_type||'카카오';
+    document.getElementById('m-contact-type').value = m.contact_type||'카톡';
     document.getElementById('m-exit-date').value    = fmtMonth(m.exit_date);
     document.getElementById('m-loss-type').value    = m.loss_type||'';
     document.getElementById('m-note').value         = m.note||'';
@@ -803,7 +801,7 @@ function openMemberModal(id = '') {
     document.getElementById('m-status').value       = '취득';
     document.getElementById('m-kisu').value         = '';
     document.getElementById('m-kisu-yn').value      = 'N';
-    document.getElementById('m-contact-type').value = '카카오';
+    document.getElementById('m-contact-type').value = '카톡';
     document.getElementById('m-exit-date').value    = '';
     document.getElementById('m-loss-type').value    = '';
     document.getElementById('m-note').value         = '';
@@ -924,8 +922,8 @@ function renderDepositForm(type = '') {
         <p class="text-xs text-gray-400 mt-1">* 자동 계산됩니다. 수정 가능.</p>
       </div>
       <div id="d-joindate-wrap" class="hidden">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">취득월 <span class="text-gray-400 font-normal">(입회비 납부연월)</span></label>
-        <input class="inp" id="d-joindate" placeholder="YYYY-MM">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">자격 취득월</label>
+        <input class="inp" id="d-joindate" type="month">
       </div>
       <div>
         <label class="block text-xs font-semibold text-gray-600 mb-1">비고</label>
