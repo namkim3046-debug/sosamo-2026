@@ -477,16 +477,52 @@ let _memberFilter = '전체';
 // SCRIPT_URL 설정 여부 체크
 // ══════════════════════════════════════════════════════════════
 function isUrlConfigured() {
-  return SCRIPT_URL && SCRIPT_URL !== 'https://script.google.com/macros/s/AKfycbypNAbsVVvaDLAnfmEg2AKvvslRWX3do-4tun5jNsidH1lAtWG7DHAA4_MSjVCAKQg/exec' && SCRIPT_URL.startsWith('http');
+  // ★ 핵심 수정: 고정 placeholder 문자열 비교 방식 → 패턴 검사 방식으로 변경
+  //   SCRIPT_URL이 실제 Apps Script exec URL이면 true
+  return typeof SCRIPT_URL === 'string'
+    && SCRIPT_URL.startsWith('https://script.google.com/macros/s/')
+    && SCRIPT_URL.endsWith('/exec');
 }
 
-/** API 호출 전 URL 체크 — 미설정이면 배너 표시 후 null 반환 */
+/** API 호출 전 URL 체크
+ *  - SCRIPT_URL 미설정 → 설정 안내 배너
+ *  - file:// 환경 → CORS 경고 배너
+ */
 function checkUrl() {
   if (!isUrlConfigured()) {
     showUrlBanner();
     return false;
   }
+  // file:// 프로토콜 감지 → CORS 차단 경고
+  if (location.protocol === 'file:') {
+    showCorsBanner();
+    return false;
+  }
   return true;
+}
+
+/** file:// CORS 차단 경고 배너 */
+function showCorsBanner() {
+  if (document.getElementById('cors-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'cors-banner';
+  banner.style.cssText = [
+    'position:fixed','top:0','left:0','right:0','z-index:99999',
+    'background:#D97706','color:#fff','font-size:.88rem','font-weight:700',
+    'padding:.75rem 1.25rem','text-align:center','box-shadow:0 2px 8px rgba(0,0,0,.3)'
+  ].join(';');
+  banner.innerHTML = `
+    🚫 file:// 직접 열기 — CORS 차단으로 API 호출 불가
+    <span style="font-weight:400; margin-left:.5rem;">
+      SCRIPT_URL은 정상입니다. 파일을 직접 열지 말고
+      <b>GitHub Pages에 업로드</b>하거나
+      <b>VS Code Live Server</b>로 접속하세요.
+    </span>
+    <button onclick="this.parentElement.remove()" style="margin-left:1rem; background:#fff3; border:none; color:#fff; padding:.2rem .6rem; border-radius:.3rem; cursor:pointer;">✕</button>
+  `;
+  document.body.prepend(banner);
+  const header = document.querySelector('header');
+  if (header) header.style.top = banner.offsetHeight + 'px';
 }
 
 /** 상단 경고 배너 표시 */
@@ -501,9 +537,10 @@ function showUrlBanner() {
       'padding:.75rem 1.25rem','text-align:center','box-shadow:0 2px 8px rgba(0,0,0,.3)'
     ].join(';');
     banner.innerHTML = `
-      ⚠️ SCRIPT_URL이 설정되지 않았습니다.
+      ⚠️ SCRIPT_URL 오류 또는 CORS 문제
       <span style="font-weight:400; margin-left:.5rem;">
-        index.html 상단의 <code style="background:#fff2; padding:.1rem .35rem; border-radius:.25rem;">SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypNAbsVVvaDLAnfmEg2AKvvslRWX3do-4tun5jNsidH1lAtWG7DHAA4_MSjVCAKQg/exec"</code> 부분을 Apps Script 배포 URL로 교체하세요.
+        Apps Script 배포 URL은 설정되어 있으나 <b>file:// 직접 열기</b>는 CORS 차단됩니다.
+        <b>GitHub Pages</b> 또는 <b>Live Server</b>로 접속하세요.
       </span>
       <button onclick="this.parentElement.remove()" style="margin-left:1rem; background:#fff3; border:none; color:#fff; padding:.2rem .6rem; border-radius:.3rem; cursor:pointer;">✕</button>
     `;
@@ -1298,6 +1335,19 @@ function monthDiff(a, b) {
 // ══════════════════════════════════════════════════════════════
 // 헬퍼
 // ══════════════════════════════════════════════════════════════
+
+/** 주요 테이블에 안내 메시지 표시 */
+function setTableMsg(title, desc) {
+  const html = `<tr><td colspan="20" class="text-center py-10">
+    <div style="font-weight:700;font-size:1rem;color:#DC2626;">${title}</div>
+    <div class="text-gray-500 text-sm mt-2">${desc}</div>
+  </td></tr>`;
+  ["members-tbody","deposits-tbody","withdrawals-tbody"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  });
+}
+
 function todayStr() {
   return new Date().toISOString().split('T')[0];
 }
@@ -1312,19 +1362,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 입금 현황 기본 날짜
   initSearchDepositsDefaults();
 
-  // SCRIPT_URL 미설정 시 경고 배너 + 테이블 안내 메시지
-  if (!isUrlConfigured()) {
+  // ── URL 미설정 또는 file:// 환경 체크 ──
+  const urlOk   = isUrlConfigured();
+  const isFIle  = location.protocol === 'file:';
+
+  if (!urlOk) {
+    // SCRIPT_URL이 아직 placeholder 상태
     showUrlBanner();
-    const guideHtml = `<tr><td colspan="20" class="text-center py-10">
-      <div style="color:#DC2626;font-weight:700;font-size:1rem;">⚠️ SCRIPT_URL을 설정해야 데이터를 불러올 수 있습니다.</div>
-      <div class="text-gray-500 text-sm mt-2">index.html 파일의 SCRIPT_URL을 Apps Script 배포 URL로 교체한 뒤<br>
-      <b>GitHub Pages 또는 로컬 서버(Live Server)</b>로 접속하세요.<br>
-      <span style="color:#EF4444">file:// 직접 열기(더블클릭)는 보안상 API 호출이 차단됩니다.</span></div>
-    </td></tr>`;
-    ["members-tbody","deposits-tbody","withdrawals-tbody"].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = guideHtml;
-    });
+    setTableMsg('⚠️ SCRIPT_URL을 설정해야 데이터를 불러올 수 있습니다.',
+      'index.html 의 SCRIPT_URL 값을 Apps Script 배포 URL로 교체한 뒤 GitHub Pages 또는 Live Server로 접속하세요.');
+    renderDepositForm("입회비");
+    return;
+  }
+
+  if (isFIle) {
+    // URL은 맞지만 file:// 프로토콜 → CORS 차단
+    showCorsBanner();
+    setTableMsg('🚫 file:// 직접 열기 — CORS 차단',
+      'SCRIPT_URL은 정상입니다. GitHub Pages에 업로드하거나 VS Code Live Server로 접속하세요.');
     renderDepositForm("입회비");
     return;
   }
