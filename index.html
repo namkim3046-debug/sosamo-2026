@@ -10,7 +10,7 @@
 <!--
   ★ 설정 필요 ★
   아래 SCRIPT_URL을 Apps Script 웹앱 배포 URL로 교체하세요.
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwohhIlPkIHdpsg5c19bycEvGn1aU_2Vmi1dC3WgvTTOhJ0qaR0uxFBoyccR-qSmt9rnw/exec";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypNAbsVVvaDLAnfmEg2AKvvslRWX3do-4tun5jNsidH1lAtWG7DHAA4_MSjVCAKQg/exec";
 -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
@@ -469,7 +469,7 @@
 // ══════════════════════════════════════════════════════════════
 // ★ 설정 필요 ★ — Apps Script 웹앱 URL을 아래에 입력하세요
 // ══════════════════════════════════════════════════════════════
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwohhIlPkIHdpsg5c19bycEvGn1aU_2Vmi1dC3WgvTTOhJ0qaR0uxFBoyccR-qSmt9rnw/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypNAbsVVvaDLAnfmEg2AKvvslRWX3do-4tun5jNsidH1lAtWG7DHAA4_MSjVCAKQg/exec";
 
 // ── 전역 데이터 캐시 ──────────────────────────────────────────
 let _members     = [];
@@ -762,7 +762,7 @@ function renderMembersTable() {
       <td class="font-semibold">${m.name||''}</td>
       <td>${m.phone||''}</td>
       <td>${statusBadge(m.status)}</td>
-      <td>${m.kisu_yn||''}</td>
+      <td>${m.kisu||''}</td>
       <td>${m.kisu_yn==='Y'?'<span class="text-green-600 font-bold">면제</span>':''}</td>
       <td>${m.contact_type||''}</td>
       <td class="text-xs">${joinDateDisplay}</td>
@@ -789,7 +789,7 @@ function openMemberModal(id = '') {
     document.getElementById('m-name').value         = m.name||'';
     document.getElementById('m-phone').value        = m.phone||'';
     document.getElementById('m-status').value       = m.status||'취득';
-    document.getElementById('m-kisu').value         = m.kisu_yn||'';
+    document.getElementById('m-kisu').value         = m.kisu||'';
     document.getElementById('m-kisu-yn').value      = m.kisu_yn||'N';
     document.getElementById('m-contact-type').value = m.contact_type||'카카오';
     document.getElementById('m-exit-date').value    = fmtMonth(m.exit_date);
@@ -824,6 +824,7 @@ async function saveMember() {
     name,
     phone,
     status:       document.getElementById('m-status').value,
+    kisu:         document.getElementById('m-kisu').value,
     kisu_yn:      document.getElementById('m-kisu-yn').value,
     contact_type: document.getElementById('m-contact-type').value,
     exit_date:    document.getElementById('m-exit-date').value,
