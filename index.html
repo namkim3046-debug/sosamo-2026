@@ -202,7 +202,7 @@
             <thead>
               <tr>
                 <th>입금자</th><th>유형</th><th>입금일</th><th>금액</th>
-                <th>시작월</th><th>종료월</th><th>비고</th><th>관리</th>
+                <th>자격시작월</th><th>자격종료(예상)월</th><th>비고</th><th>관리</th>
               </tr>
             </thead>
             <tbody id="deposits-tbody">
@@ -436,11 +436,15 @@
           </select>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">상실월</label>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">자격 취득월 <span class="text-gray-400 font-normal">(자동 계산, 수정 가능)</span></label>
+          <input class="inp" id="m-join-month" type="month">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">자격상실(예정)월</label>
           <input class="inp" id="m-exit-date" type="month">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">상실유형</label>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">자격상실 유형</label>
           <select class="inp" id="m-loss-type">
             <option value="">-</option>
             <option value="본인희망">본인희망</option>
@@ -803,6 +807,7 @@ function openMemberModal(id = '') {
     document.getElementById('m-kisu').value         = m.kisu||'';
     document.getElementById('m-kisu-yn').value      = m.kisu_yn||'N';
     document.getElementById('m-contact-type').value = m.contact_type||'카톡';
+    document.getElementById('m-join-month').value   = fmtMonth(m.join_date);
     document.getElementById('m-exit-date').value    = fmtMonth(m.exit_date);
     document.getElementById('m-loss-type').value    = m.loss_type||'';
     document.getElementById('m-note').value         = m.note||'';
@@ -815,6 +820,7 @@ function openMemberModal(id = '') {
     document.getElementById('m-kisu').value         = '';
     document.getElementById('m-kisu-yn').value      = 'N';
     document.getElementById('m-contact-type').value = '카톡';
+    document.getElementById('m-join-month').value   = '';
     document.getElementById('m-exit-date').value    = '';
     document.getElementById('m-loss-type').value    = '';
     document.getElementById('m-note').value         = '';
@@ -838,6 +844,7 @@ async function saveMember() {
     kisu:         document.getElementById('m-kisu').value,
     kisu_yn:      document.getElementById('m-kisu-yn').value,
     contact_type: document.getElementById('m-contact-type').value,
+    join_date:    document.getElementById('m-join-month').value,
     exit_date:    document.getElementById('m-exit-date').value,
     loss_type:    document.getElementById('m-loss-type').value,
     note:         document.getElementById('m-note').value,
@@ -954,30 +961,38 @@ function renderDepositForm(type = '') {
       </div>
       <div>
         <label class="block text-xs font-semibold text-gray-600 mb-1">입금일 <span class="text-red-500">*</span></label>
-        <input class="inp" id="d-date" type="date" value="${todayStr()}" onchange="calcMonthRange()">
+        <input class="inp" id="d-date" type="date" value="${todayStr()}" onchange="onDepositDateChange()">
         <div class="err-msg hidden" id="d-date-err">입금일을 선택하세요.</div>
       </div>
       <div>
         <label class="block text-xs font-semibold text-gray-600 mb-1">금액 <span class="text-red-500">*</span></label>
-        <input class="inp" id="d-amount" placeholder="0" oninput="fmtAmount(this); calcMonthRange();">
+        <input class="inp" id="d-amount" placeholder="0" oninput="fmtAmount(this); onDepositAmountChange();">
         <div class="err-msg hidden" id="d-amount-err">금액을 입력하세요.</div>
       </div>
       <div id="d-month-range-wrap" class="hidden">
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">시작월</label>
-            <input class="inp" id="d-start" placeholder="YYYY-MM">
+            <label class="block text-xs font-semibold text-gray-600 mb-1">자격시작월</label>
+            <input class="inp" id="d-start" type="month">
           </div>
           <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">종료월(상실예정)</label>
-            <input class="inp" id="d-end" placeholder="YYYY-MM">
+            <label class="block text-xs font-semibold text-gray-600 mb-1">자격종료(예상)월</label>
+            <input class="inp" id="d-end" type="month">
           </div>
         </div>
         <p class="text-xs text-gray-400 mt-1">* 자동 계산됩니다. 수정 가능.</p>
       </div>
       <div id="d-joindate-wrap" class="hidden">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">자격 취득월</label>
-        <input class="inp" id="d-joindate" type="month">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">자격 취득월</label>
+            <input class="inp" id="d-joindate" type="month">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">자격상실(예정)월</label>
+            <input class="inp" id="d-join-end" type="month">
+          </div>
+        </div>
       </div>
       <div>
         <label class="block text-xs font-semibold text-gray-600 mb-1">비고</label>
@@ -997,20 +1012,44 @@ function onDepositTypeChange() {
   monthWrap.classList.toggle('hidden', type !== '월회비');
   joinWrap.classList.toggle('hidden', type !== '입회비');
   if (type === '월회비') {
-    // 금액 기본값: 10000
     const amtEl = document.getElementById('d-amount');
     if (!amtEl.dataset.raw) { amtEl.value = '10,000'; amtEl.dataset.raw = '10000'; }
     calcMonthRange();
   } else if (type === '입회비') {
     const amtEl = document.getElementById('d-amount');
     if (!amtEl.dataset.raw) { amtEl.value = '50,000'; amtEl.dataset.raw = '50000'; }
-    // 취득월 = 입금일 년월
-    const dateEl = document.getElementById('d-date');
-    if (dateEl.value) document.getElementById('d-joindate').value = dateEl.value.substring(0,7);
+    calcJoinMonthRange();
   }
 }
 
-/** 월회비 시작월/종료월 자동 계산 */
+/** 입회비: 자격취득월 자동 채우기 + 자격상실(예정)월 = 취득월+12개월 */
+function calcJoinMonthRange() {
+  const dateEl = document.getElementById('d-date');
+  if (!dateEl || !dateEl.value) return;
+  const joinMonth = dateEl.value.substring(0, 7);
+  const joinEl = document.getElementById('d-joindate');
+  if (joinEl) joinEl.value = joinMonth;
+  // 자격상실(예정)월 = 취득월 + 12개월
+  const d = new Date(joinMonth + '-01');
+  d.setMonth(d.getMonth() + 12);
+  const endEl = document.getElementById('d-join-end');
+  if (endEl) endEl.value = d.toISOString().substring(0, 7);
+}
+
+/** 입금일 변경 통합 핸들러 */
+function onDepositDateChange() {
+  const type = document.getElementById('d-type')?.value;
+  if (type === '월회비') calcMonthRange();
+  else if (type === '입회비') calcJoinMonthRange();
+}
+
+/** 금액 변경 통합 핸들러 */
+function onDepositAmountChange() {
+  const type = document.getElementById('d-type')?.value;
+  if (type === '월회비') calcMonthRange();
+}
+
+/** 월회비 자격시작월/자격종료(예상)월 자동 계산 */
 function calcMonthRange() {
   if (document.getElementById('d-type')?.value !== '월회비') return;
   const member = document.getElementById('d-member')?.value;
@@ -1092,12 +1131,14 @@ async function submitDeposit() {
     amount: parseAmount(document.getElementById('d-amount')),
     start_month: type === '월회비' ? (document.getElementById('d-start')?.value||'') : '',
     end_month:   type === '월회비' ? (document.getElementById('d-end')?.value||'')   : '',
+    // 입회비의 경우 아래 블록에서 덮어씀
     note: document.getElementById('d-note').value
   };
 
   // 입회비 → join_date도 업데이트
   if (type === '입회비') {
     data.start_month = document.getElementById('d-joindate')?.value || data.deposit_date.substring(0,7);
+    data.end_month   = document.getElementById('d-join-end')?.value || '';
   }
 
   const action = data.id ? 'updateDeposit' : 'addDeposit';
@@ -1141,11 +1182,11 @@ function openDepositModal(id) {
         <input class="inp" id="dm-amount" value="${Number(d.amount||0).toLocaleString('ko-KR')}" oninput="fmtAmount(this)" data-raw="${d.amount||0}">
       </div>
       <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">시작월</label>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">자격시작월</label>
         <input class="inp" id="dm-start" value="${fmtMonth(d.start_month)}">
       </div>
       <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">종료월</label>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">자격종료(예상)월</label>
         <input class="inp" id="dm-end" value="${fmtMonth(d.end_month)}">
       </div>
     </div>
@@ -1334,15 +1375,23 @@ async function runSearchMembers() {
     return;
   }
   tbody.innerHTML = data.map((m, i) => {
-    // 자격 취득월: 해당 회원의 입회비 입금 레코드에서 deposit_date 기준
-    const joinDep = (m.deposits || []).find(d => d.type === '입회비');
-    // start_month(자격취득월)가 있으면 우선, 없으면 deposit_date의 년월
-    const joinMonth = joinDep
-      ? (joinDep.start_month ? fmtMonth(joinDep.start_month) : fmtDate(joinDep.deposit_date).substring(0,7))
-      : '';
-    const joinDateDisp = joinDep ? fmtDate(joinDep.deposit_date) : '';
-    const kisuYn = String(m.kisu_yn||'').trim().toUpperCase() === 'Y'
-      ? '<span class="badge badge-취득">면제</span>' : '';
+    const deps = m.deposits || [];
+
+    // ★ 자격 취득월: 입회비 레코드의 start_month 우선, 없으면 deposit_date 년월
+    const joinDep = deps.find(d => d.type === '입회비');
+    let joinMonth = '';
+    let joinDateDisp = '';
+    if (joinDep) {
+      const sm = String(joinDep.start_month || '').trim();
+      joinMonth    = sm ? fmtMonth(sm) : fmtDate(joinDep.deposit_date).substring(0, 7);
+      joinDateDisp = fmtDate(joinDep.deposit_date);
+    }
+
+    // ★ 월회비 면제: 'Y'/'y'/true/1 모두 면제로 처리
+    const kisuRaw = String(m.kisu_yn || '').trim();
+    const isFree  = kisuRaw.toUpperCase() === 'Y' || kisuRaw === '1' || kisuRaw === 'true';
+    const kisuYn  = isFree ? '<span class="badge badge-취득">면제</span>' : '';
+
     return `<tr>
       <td>${i+1}</td>
       <td class="font-semibold">${m.name||''}</td>
