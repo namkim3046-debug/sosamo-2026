@@ -10,7 +10,7 @@
 <!--
   ★ 설정 필요 ★
   아래 SCRIPT_URL을 Apps Script 웹앱 배포 URL로 교체하세요.
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyX4NWHdNtzs1zeGl9YNa2fV89Bj7UlOYVQEeokWKm0QbasW8aO9-M-Rfj-YK3vcDZIsA/exec";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz5mjsbwk5y5iAb5Q3zqCTLU9b9y87GjdBrMHK3sSjRp-XvqqzEZ38TfyHsWrppkN0c7Q/exec";
 -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
@@ -187,16 +187,22 @@
       </div>
       <!-- 입금 목록 -->
       <div class="card p-4 lg:col-span-2">
-        <div class="flex items-center justify-between mb-3">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
           <h2 class="text-lg font-bold text-primary">입금 내역</h2>
-          <span id="deposit-count" class="text-sm text-gray-500"></span>
+          <div class="flex flex-wrap items-center gap-2 ml-auto">
+            <input class="inp w-auto" id="dep-from" type="month" style="min-width:130px;">
+            <span class="text-gray-400 text-sm">~</span>
+            <input class="inp w-auto" id="dep-to" type="month" style="min-width:130px;">
+            <button class="btn btn-accent btn-sm" onclick="filterDepositsTable()">🔍 조회</button>
+            <span id="deposit-count" class="text-sm text-gray-500"></span>
+          </div>
         </div>
         <div class="tbl-wrap" style="max-height:70vh; overflow-y:auto;">
           <table class="tbl">
             <thead>
               <tr>
                 <th>입금자</th><th>유형</th><th>입금일</th><th>금액</th>
-                <th>자격취득월</th><th>자격상실(예정)월</th><th>비고</th><th>관리</th>
+                <th>시작월</th><th>종료월</th><th>비고</th><th>관리</th>
               </tr>
             </thead>
             <tbody id="deposits-tbody">
@@ -255,8 +261,15 @@
       </div>
       <!-- 출금 목록 -->
       <div class="card p-4 lg:col-span-2">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-bold text-primary">출금 내역 <span class="text-sm font-normal text-gray-500">(최근 100건)</span></h2>
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <h2 class="text-lg font-bold text-primary">출금 내역</h2>
+          <div class="flex flex-wrap items-center gap-2 ml-auto">
+            <input class="inp w-auto" id="wit-from" type="month" style="min-width:130px;">
+            <span class="text-gray-400 text-sm">~</span>
+            <input class="inp w-auto" id="wit-to" type="month" style="min-width:130px;">
+            <button class="btn btn-accent btn-sm" onclick="filterWithdrawalsTable()">🔍 조회</button>
+            <span id="withdrawal-count" class="text-sm text-gray-500"></span>
+          </div>
         </div>
         <div class="tbl-wrap" style="max-height:70vh; overflow-y:auto;">
           <table class="tbl">
@@ -301,7 +314,7 @@
       </div>
       <div class="tbl-wrap">
         <table class="tbl" id="srch-m-tbl">
-          <thead><tr><th>SEQ</th><th>이름</th><th>연락처</th><th>회원상태</th><th>취득월</th><th>상실월</th></tr></thead>
+          <thead><tr><th>SEQ</th><th>이름</th><th>연락처</th><th>회원상태</th><th>기수</th><th>자격 취득월</th><th>상실(예정)월</th><th>입회비 납부일</th><th>월회비 면제</th></tr></thead>
           <tbody id="srch-m-tbody"><tr><td colspan="6" class="text-center py-8 text-gray-400">검색 조건을 선택 후 검색하세요.</td></tr></tbody>
         </table>
       </div>
@@ -327,7 +340,7 @@
       </div>
       <div class="tbl-wrap">
         <table class="tbl" id="srch-d-tbl">
-          <thead><tr><th>입금일</th><th>회원상태</th><th>회원명</th><th>입금유형</th><th>금액</th><th>비고</th></tr></thead>
+          <thead><tr><th>입금일</th><th>회원명</th><th>회원상태</th><th>입금유형</th><th>금액</th><th>비고</th></tr></thead>
           <tbody id="srch-d-tbody"><tr><td colspan="6" class="text-center py-8 text-gray-400">검색 조건을 선택 후 검색하세요.</td></tr></tbody>
         </table>
       </div>
@@ -365,7 +378,7 @@
       </div>
       <div class="tbl-wrap">
         <table class="tbl" id="srch-v-tbl">
-          <thead><tr><th>SEQ</th><th>이름</th><th>연락처</th><th>회원상태</th><th>취득월</th><th>상실월</th><th>상실 예정월</th></tr></thead>
+          <thead><tr><th>SEQ</th><th>이름</th><th>연락처</th><th>회원상태</th><th>자격 취득월</th><th>자격상실(예정)월</th><th>상실 예정월</th></tr></thead>
           <tbody id="srch-v-tbody"><tr><td colspan="7" class="text-center py-8 text-gray-400">검색 조건을 선택 후 검색하세요.</td></tr></tbody>
         </table>
       </div>
@@ -467,7 +480,7 @@
 // ══════════════════════════════════════════════════════════════
 // ★ 설정 필요 ★ — Apps Script 웹앱 URL을 아래에 입력하세요
 // ══════════════════════════════════════════════════════════════
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyX4NWHdNtzs1zeGl9YNa2fV89Bj7UlOYVQEeokWKm0QbasW8aO9-M-Rfj-YK3vcDZIsA/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz5mjsbwk5y5iAb5Q3zqCTLU9b9y87GjdBrMHK3sSjRp-XvqqzEZ38TfyHsWrppkN0c7Q/exec";
 
 // ── 전역 데이터 캐시 ──────────────────────────────────────────
 let _members     = [];
@@ -858,8 +871,49 @@ async function loadDeposits() {
   const res = await apiGet({ action:'getDeposits' });
   if (!res.success) { toast('입금 데이터 로드 실패', false); return; }
   _deposits = res.data || [];
-  renderDepositsTable();
+  initDepositPeriodDefaults();
+  filterDepositsTable();
   renderDepositForm();
+}
+
+/** 입금관리 기간 초기값: from=3개월 전, to=현재월 */
+function initDepositPeriodDefaults() {
+  const fromEl = document.getElementById('dep-from');
+  const toEl   = document.getElementById('dep-to');
+  if (!fromEl || !toEl) return;
+  if (!fromEl.value) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 3);
+    fromEl.value = d.toISOString().substring(0, 7);
+  }
+  if (!toEl.value) {
+    toEl.value = new Date().toISOString().substring(0, 7);
+  }
+}
+
+/** 입금내역 테이블 필터링 (기간 + 선택 회원) */
+function filterDepositsTable() {
+  const fromEl = document.getElementById('dep-from');
+  const toEl   = document.getElementById('dep-to');
+  const memberEl = document.getElementById('d-member');
+  const from   = fromEl ? fromEl.value : '';
+  const to     = toEl   ? toEl.value   : '';
+  const selMember = memberEl ? memberEl.value : '';
+
+  let filtered = [..._deposits];
+
+  // 회원 선택 필터
+  if (selMember) {
+    filtered = filtered.filter(d => d.name === selMember);
+  }
+  // 기간 필터 (YYYY-MM 기준으로 deposit_date 앞 7자리 비교)
+  if (from) filtered = filtered.filter(d => (d.deposit_date||'').substring(0,7) >= from);
+  if (to)   filtered = filtered.filter(d => (d.deposit_date||'').substring(0,7) <= to);
+
+  // 입금일 오름차순
+  filtered.sort((a, b) => new Date(a.deposit_date) - new Date(b.deposit_date));
+
+  renderDepositsTable(filtered);
 }
 
 /** 회원 드롭다운 갱신 */
@@ -881,8 +935,8 @@ function renderDepositForm(type = '') {
     <div class="space-y-3">
       <div>
         <label class="block text-xs font-semibold text-gray-600 mb-1">회원 선택 <span class="text-red-500">*</span></label>
-        <select class="inp" id="d-member">
-          <option value="">회원 선택</option>
+        <select class="inp" id="d-member" onchange="filterDepositsTable()">
+          <option value="">전체 (회원 선택)</option>
           ${_members.map(m=>`<option value="${m.name}">${m.name}</option>`).join('')}
         </select>
         <div class="err-msg hidden" id="d-member-err">회원을 선택하세요.</div>
@@ -900,7 +954,7 @@ function renderDepositForm(type = '') {
       </div>
       <div>
         <label class="block text-xs font-semibold text-gray-600 mb-1">입금일 <span class="text-red-500">*</span></label>
-        <input class="inp" id="d-date" type="date" value="${todayStr()}" onchange="onDepositDateChange()">
+        <input class="inp" id="d-date" type="date" value="${todayStr()}" onchange="calcMonthRange()">
         <div class="err-msg hidden" id="d-date-err">입금일을 선택하세요.</div>
       </div>
       <div>
@@ -911,27 +965,19 @@ function renderDepositForm(type = '') {
       <div id="d-month-range-wrap" class="hidden">
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">자격취득월</label>
-            <input class="inp" id="d-start" type="month">
+            <label class="block text-xs font-semibold text-gray-600 mb-1">시작월</label>
+            <input class="inp" id="d-start" placeholder="YYYY-MM">
           </div>
           <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">자격상실(예정)월</label>
-            <input class="inp" id="d-end" type="month">
+            <label class="block text-xs font-semibold text-gray-600 mb-1">종료월(상실예정)</label>
+            <input class="inp" id="d-end" placeholder="YYYY-MM">
           </div>
         </div>
         <p class="text-xs text-gray-400 mt-1">* 자동 계산됩니다. 수정 가능.</p>
       </div>
       <div id="d-joindate-wrap" class="hidden">
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">자격 취득월</label>
-            <input class="inp" id="d-joindate" type="month">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">자격상실(예정)월</label>
-            <input class="inp" id="d-join-end" type="month">
-          </div>
-        </div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">자격 취득월</label>
+        <input class="inp" id="d-joindate" type="month">
       </div>
       <div>
         <label class="block text-xs font-semibold text-gray-600 mb-1">비고</label>
@@ -942,13 +988,6 @@ function renderDepositForm(type = '') {
 
   document.getElementById('d-type').value = selectedType;
   onDepositTypeChange();
-}
-
-/** 입금일 변경 시 유형에 맞춰 월 범위 재계산 */
-function onDepositDateChange() {
-  const type = document.getElementById('d-type').value;
-  if (type === '월회비') calcMonthRange();
-  else if (type === '입회비') calcJoinMonthRange();
 }
 
 function onDepositTypeChange() {
@@ -965,21 +1004,10 @@ function onDepositTypeChange() {
   } else if (type === '입회비') {
     const amtEl = document.getElementById('d-amount');
     if (!amtEl.dataset.raw) { amtEl.value = '50,000'; amtEl.dataset.raw = '50000'; }
-    calcJoinMonthRange();
+    // 취득월 = 입금일 년월
+    const dateEl = document.getElementById('d-date');
+    if (dateEl.value) document.getElementById('d-joindate').value = dateEl.value.substring(0,7);
   }
-}
-
-/** 입회비: 자격취득월(입금일 기준) + 자격상실예정월(취득월+12개월) 자동 계산 */
-function calcJoinMonthRange() {
-  const dateEl = document.getElementById('d-date');
-  if (!dateEl.value) return;
-  const joinMonth = dateEl.value.substring(0, 7);
-  document.getElementById('d-joindate').value = joinMonth;
-
-  // 상실예정월 = 취득월 + 12개월
-  const d = new Date(joinMonth + '-01');
-  d.setMonth(d.getMonth() + 12);
-  document.getElementById('d-join-end').value = d.toISOString().substring(0, 7);
 }
 
 /** 월회비 시작월/종료월 자동 계산 */
@@ -1018,8 +1046,11 @@ function calcMonthRange() {
   document.getElementById('d-end').value   = endMonth;
 }
 
-function renderDepositsTable() {
-  const sorted = [..._deposits].sort((a,b) => new Date(b.deposit_date) - new Date(a.deposit_date));
+function renderDepositsTable(dataArg) {
+  // 인자가 없으면 전체 _deposits를 입금일 오름차순으로 표시
+  const sorted = dataArg !== undefined
+    ? dataArg
+    : [..._deposits].sort((a,b) => new Date(a.deposit_date) - new Date(b.deposit_date));
   const tbody  = document.getElementById('deposits-tbody');
   document.getElementById('deposit-count').textContent = `총 ${sorted.length}건`;
   if (!sorted.length) {
@@ -1064,10 +1095,9 @@ async function submitDeposit() {
     note: document.getElementById('d-note').value
   };
 
-  // 입회비 → 자격취득월(start_month), 자격상실예정월(end_month) 모두 저장
+  // 입회비 → join_date도 업데이트
   if (type === '입회비') {
     data.start_month = document.getElementById('d-joindate')?.value || data.deposit_date.substring(0,7);
-    data.end_month   = document.getElementById('d-join-end')?.value || '';
   }
 
   const action = data.id ? 'updateDeposit' : 'addDeposit';
@@ -1111,12 +1141,12 @@ function openDepositModal(id) {
         <input class="inp" id="dm-amount" value="${Number(d.amount||0).toLocaleString('ko-KR')}" oninput="fmtAmount(this)" data-raw="${d.amount||0}">
       </div>
       <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">자격취득월</label>
-        <input class="inp" id="dm-start" type="month" value="${fmtMonth(d.start_month)}">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">시작월</label>
+        <input class="inp" id="dm-start" value="${fmtMonth(d.start_month)}">
       </div>
       <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">자격상실(예정)월</label>
-        <input class="inp" id="dm-end" type="month" value="${fmtMonth(d.end_month)}">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">종료월</label>
+        <input class="inp" id="dm-end" value="${fmtMonth(d.end_month)}">
       </div>
     </div>
     <div>
@@ -1159,16 +1189,52 @@ async function loadWithdrawals() {
   const res = await apiGet({ action:'getWithdrawals' });
   if (!res.success) { toast('출금 데이터 로드 실패', false); return; }
   _withdrawals = res.data || [];
-  renderWithdrawalsTable();
+  initWithdrawalPeriodDefaults();
+  filterWithdrawalsTable();
 }
 
-function renderWithdrawalsTable() {
+/** 출금관리 기간 초기값: from=3개월 전, to=현재월 */
+function initWithdrawalPeriodDefaults() {
+  const fromEl = document.getElementById('wit-from');
+  const toEl   = document.getElementById('wit-to');
+  if (!fromEl || !toEl) return;
+  if (!fromEl.value) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 3);
+    fromEl.value = d.toISOString().substring(0, 7);
+  }
+  if (!toEl.value) {
+    toEl.value = new Date().toISOString().substring(0, 7);
+  }
+}
+
+/** 출금내역 테이블 필터링 (기간) */
+function filterWithdrawalsTable() {
+  const fromEl = document.getElementById('wit-from');
+  const toEl   = document.getElementById('wit-to');
+  const from   = fromEl ? fromEl.value : '';
+  const to     = toEl   ? toEl.value   : '';
+
+  let filtered = [..._withdrawals];
+  if (from) filtered = filtered.filter(w => (w.withdrawal_date||'').substring(0,7) >= from);
+  if (to)   filtered = filtered.filter(w => (w.withdrawal_date||'').substring(0,7) <= to);
+
+  // 출금일 오름차순
+  filtered.sort((a, b) => new Date(a.withdrawal_date) - new Date(b.withdrawal_date));
+
+  renderWithdrawalsTable(filtered);
+}
+
+function renderWithdrawalsTable(dataArg) {
+  const data  = dataArg !== undefined ? dataArg : [..._withdrawals].sort((a,b) => new Date(a.withdrawal_date) - new Date(b.withdrawal_date));
   const tbody = document.getElementById('withdrawals-tbody');
-  if (!_withdrawals.length) {
+  const countEl = document.getElementById('withdrawal-count');
+  if (countEl) countEl.textContent = `총 ${data.length}건`;
+  if (!data.length) {
     tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-400">출금 내역이 없습니다.</td></tr>';
     return;
   }
-  tbody.innerHTML = _withdrawals.map(w => `<tr>
+  tbody.innerHTML = data.map(w => `<tr>
     <td>${w.name||''}</td>
     <td>${w.manager||''}</td>
     <td>${fmtDate(w.withdrawal_date)}</td>
@@ -1256,21 +1322,39 @@ async function runSearchMembers() {
   const status = document.getElementById('srch-m-status').value;
   const res    = await apiGet({ action:'searchMembers', status });
   if (!res.success) { toast('검색 실패: '+res.error, false); return; }
-  const data   = res.data || [];
+  let data = res.data || [];
+
+  // 이름순 오름차순
+  data.sort((a, b) => (a.name||'').localeCompare(b.name||'', 'ko'));
+
   document.getElementById('srch-m-cnt').textContent = `${data.length}건`;
   const tbody  = document.getElementById('srch-m-tbody');
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-400">검색 결과가 없습니다.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-gray-400">검색 결과가 없습니다.</td></tr>';
     return;
   }
-  tbody.innerHTML = data.map((m, i) => `<tr>
-    <td>${i+1}</td>
-    <td class="font-semibold">${m.name||''}</td>
-    <td>${m.phone||''}</td>
-    <td>${statusBadge(m.status)}</td>
-    <td class="text-xs">${fmtDate(m.join_date)}</td>
-    <td class="text-xs">${fmtMonth(m.exit_date)}</td>
-  </tr>`).join('');
+  tbody.innerHTML = data.map((m, i) => {
+    // 자격 취득월: 해당 회원의 입회비 입금 레코드에서 deposit_date 기준
+    const joinDep = (m.deposits || []).find(d => d.type === '입회비');
+    // start_month(자격취득월)가 있으면 우선, 없으면 deposit_date의 년월
+    const joinMonth = joinDep
+      ? (joinDep.start_month ? fmtMonth(joinDep.start_month) : fmtDate(joinDep.deposit_date).substring(0,7))
+      : '';
+    const joinDateDisp = joinDep ? fmtDate(joinDep.deposit_date) : '';
+    const kisuYn = String(m.kisu_yn||'').trim().toUpperCase() === 'Y'
+      ? '<span class="badge badge-취득">면제</span>' : '';
+    return `<tr>
+      <td>${i+1}</td>
+      <td class="font-semibold">${m.name||''}</td>
+      <td>${m.phone||''}</td>
+      <td>${statusBadge(m.status)}</td>
+      <td class="text-xs">${m.kisu||''}</td>
+      <td class="text-xs">${joinMonth}</td>
+      <td class="text-xs">${fmtMonth(m.exit_date)}</td>
+      <td class="text-xs">${joinDateDisp}</td>
+      <td>${kisuYn}</td>
+    </tr>`;
+  }).join('');
 }
 
 /** 입금현황 */
@@ -1295,10 +1379,12 @@ async function runSearchDeposits() {
     tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-400">검색 결과가 없습니다.</td></tr>';
     return;
   }
+  // 입금일 오름차순
+  data.sort((a, b) => new Date(a.deposit_date) - new Date(b.deposit_date));
   tbody.innerHTML = data.map(d => `<tr>
     <td>${fmtDate(d.deposit_date)}</td>
-    <td>${statusBadge(d.member_status)}</td>
     <td>${d.name||''}</td>
+    <td>${statusBadge(d.member_status)}</td>
     <td>${typeBadge(d.type)}</td>
     <td class="text-right font-mono">${Number(d.amount||0).toLocaleString('ko-KR')}원</td>
     <td class="text-xs">${d.note||''}</td>
@@ -1318,6 +1404,8 @@ async function runSearchWithdrawals() {
     tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-400">검색 결과가 없습니다.</td></tr>';
     return;
   }
+  // 출금일 오름차순
+  data.sort((a, b) => new Date(a.withdrawal_date) - new Date(b.withdrawal_date));
   tbody.innerHTML = data.map(w => `<tr>
     <td>${fmtDate(w.withdrawal_date)}</td>
     <td>${w.name||''}</td>
@@ -1341,12 +1429,18 @@ async function runSearchValidity() {
     tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-400">검색 결과가 없습니다.</td></tr>';
     return;
   }
+  // 자격상실(예정)월 오름차순
+  data.sort((a, b) => {
+    const am = a.expiry_month || '9999-99';
+    const bm = b.expiry_month || '9999-99';
+    return am < bm ? -1 : am > bm ? 1 : 0;
+  });
   tbody.innerHTML = data.map((m, i) => `<tr>
     <td>${i+1}</td>
     <td class="font-semibold">${m.name||''}</td>
     <td>${m.phone||''}</td>
     <td>${statusBadge(m.status)}</td>
-    <td class="text-xs">${fmtDate(m.join_date)}</td>
+    <td class="text-xs">${m.join_month||fmtDate(m.join_date).substring(0,7)}</td>
     <td class="text-xs">${fmtMonth(m.exit_date)}</td>
     <td class="font-semibold ${expiryColor(m.expiry_month)}">${fmtMonth(m.expiry_month)}</td>
   </tr>`).join('');
